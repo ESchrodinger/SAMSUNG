@@ -1,0 +1,3 @@
+1、假设现在在测试中，发现后台杀太早了但是memory是够的，该调节哪些参数，让后台被杀的晚一点
+2、ro.slmk.base_swaptotal、ro.slmk.swap_free_low_percentage、ro.slmk.2nd.swap_free_low_percentage，类似这些参数改动了对memory有哪些影响。
+3、主要就是探讨修改我厂的参数能带来什么效果，小内存手机如何多杀后台，保证前台速度等等

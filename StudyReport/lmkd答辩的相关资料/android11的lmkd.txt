@@ -1,0 +1,464 @@
+static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_params) {
+    enum kill_reasons {
+        NONE = -1, /* To denote no kill condition */
+        PRESSURE_AFTER_KILL = 0,
+        NOT_RESPONDING,
+        LOW_SWAP_AND_THRASHING,
+        LOW_MEM_AND_SWAP,
+        LOW_MEM_AND_THRASHING,
+        DIRECT_RECL_AND_THRASHING,
+        KILL_REASON_COUNT
+    };
+    enum reclaim_state {
+        NO_RECLAIM = 0,
+        KSWAPD_RECLAIM,
+        DIRECT_RECLAIM,
+    };
+    static int64_t init_ws_refault;
+    static int64_t base_file_lru;
+    static int64_t init_pgscan_kswapd;
+    static int64_t init_pgscan_direct;
+    static int64_t swap_low_threshold;
+    static bool killing;
+    static int thrashing_limit;
+    static bool in_reclaim;
+    static struct zone_watermarks watermarks;
+    static struct timespec wmark_update_tm;
+
+    union meminfo mi;
+    union vmstat vs;
+    struct timespec curr_tm;
+    int64_t thrashing = 0;
+    bool swap_is_low = false;
+    enum vmpressure_level level = (enum vmpressure_level)data;
+    enum kill_reasons kill_reason = NONE;
+    bool cycle_after_kill = false;
+    enum reclaim_state reclaim = NO_RECLAIM;
+    enum zone_watermark wmark = WMARK_NONE;
+    char kill_desc[LINE_MAX];
+    bool cut_thrashing_limit = false;
+    int min_score_adj = 0;
+
+    if (clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm) != 0) {
+        ALOGE("Failed to get current time");
+        return;
+    }
+
+    bool kill_pending = is_kill_pending();
+    if (kill_pending && (kill_timeout_ms == 0 ||
+        get_time_diff_ms(&last_kill_tm, &curr_tm) < static_cast<long>(kill_timeout_ms))) {
+        /* Skip while still killing a process */
+        goto no_kill;
+    }
+    /*
+     * Process is dead or kill timeout is over, stop waiting. This has no effect if pidfds are
+     * supported and death notification already caused waiting to stop.
+     */
+    stop_wait_for_proc_kill(!kill_pending);
+
+    if (vmstat_parse(&vs) < 0) {
+        ALOGE("Failed to parse vmstat!");
+        return;
+    }
+
+    if (meminfo_parse(&mi) < 0) {
+        ALOGE("Failed to parse meminfo!");
+        return;
+    }
+
+    /* Reset states after process got killed */
+    if (killing) {
+        killing = false;
+        cycle_after_kill = true;
+        /* Reset file-backed pagecache size and refault amounts after a kill */
+        base_file_lru = vs.field.nr_inactive_file + vs.field.nr_active_file;
+        init_ws_refault = vs.field.workingset_refault;
+    }
+
+    /* Check free swap levels */
+    if (swap_free_low_percentage) {
+        if (!swap_low_threshold) {
+            swap_low_threshold = mi.field.total_swap * swap_free_low_percentage / 100;
+        }
+        swap_is_low = mi.field.free_swap < swap_low_threshold;
+    }
+
+    /* Identify reclaim state */
+    if (vs.field.pgscan_direct > init_pgscan_direct) {
+        init_pgscan_direct = vs.field.pgscan_direct;
+        init_pgscan_kswapd = vs.field.pgscan_kswapd;
+        reclaim = DIRECT_RECLAIM;
+    } else if (vs.field.pgscan_kswapd > init_pgscan_kswapd) {
+        init_pgscan_kswapd = vs.field.pgscan_kswapd;
+        reclaim = KSWAPD_RECLAIM;
+    } else {
+        in_reclaim = false;
+        /* Skip if system is not reclaiming */
+        goto no_kill;
+    }
+
+    if (!in_reclaim) {
+        /* Record file-backed pagecache size when entering reclaim cycle */
+        base_file_lru = vs.field.nr_inactive_file + vs.field.nr_active_file;
+        init_ws_refault = vs.field.workingset_refault;
+        thrashing_limit = thrashing_limit_pct;
+    } else {
+        /* Calculate what % of the file-backed pagecache refaulted so far */
+        thrashing = (vs.field.workingset_refault - init_ws_refault) * 100 / base_file_lru;
+    }
+    in_reclaim = true;
+
+    /*
+     * Refresh watermarks once per min in case user updated one of the margins.
+     * TODO: b/140521024 replace this periodic update with an API for AMS to notify LMKD
+     * that zone watermarks were changed by the system software.
+     */
+    if (watermarks.high_wmark == 0 || get_time_diff_ms(&wmark_update_tm, &curr_tm) > 60000) {
+        struct zoneinfo zi;
+
+        if (zoneinfo_parse(&zi) < 0) {
+            ALOGE("Failed to parse zoneinfo!");
+            return;
+        }
+
+        calc_zone_watermarks(&zi, &watermarks);
+        wmark_update_tm = curr_tm;
+     }
+
+    /* Find out which watermark is breached if any */
+    wmark = get_lowest_watermark(&mi, &watermarks);
+
+    /*
+     * TODO: move this logic into a separate function
+     * Decide if killing a process is necessary and record the reason
+     */
+    if (cycle_after_kill && wmark < WMARK_LOW) {
+        /*
+         * Prevent kills not freeing enough memory which might lead to OOM kill.
+         * This might happen when a process is consuming memory faster than reclaim can
+         * free even after a kill. Mostly happens when running memory stress tests.
+         */
+        kill_reason = PRESSURE_AFTER_KILL;
+        strncpy(kill_desc, "min watermark is breached even after kill", sizeof(kill_desc));
+    } else if (level == VMPRESS_LEVEL_CRITICAL && events != 0) {
+        /*
+         * Device is too busy reclaiming memory which might lead to ANR.
+         * Critical level is triggered when PSI complete stall (all tasks are blocked because
+         * of the memory congestion) breaches the configured threshold.
+         */
+        kill_reason = NOT_RESPONDING;
+        strncpy(kill_desc, "device is not responding", sizeof(kill_desc));
+    } else if (swap_is_low && thrashing > thrashing_limit_pct) {
+        /* Page cache is thrashing while swap is low */
+        kill_reason = LOW_SWAP_AND_THRASHING;
+        snprintf(kill_desc, sizeof(kill_desc), "device is low on swap (%" PRId64
+            "kB < %" PRId64 "kB) and thrashing (%" PRId64 "%%)",
+            mi.field.free_swap * page_k, swap_low_threshold * page_k, thrashing);
+        /* Do not kill perceptible apps unless below min watermark */
+        if (wmark > WMARK_MIN) {
+            min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        }
+    } else if (swap_is_low && wmark < WMARK_HIGH) {
+        /* Both free memory and swap are low */
+        kill_reason = LOW_MEM_AND_SWAP;
+        snprintf(kill_desc, sizeof(kill_desc), "%s watermark is breached and swap is low (%"
+            PRId64 "kB < %" PRId64 "kB)", wmark > WMARK_LOW ? "min" : "low",
+            mi.field.free_swap * page_k, swap_low_threshold * page_k);
+        /* Do not kill perceptible apps unless below min watermark */
+        if (wmark > WMARK_MIN) {
+            min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        }
+    } else if (wmark < WMARK_HIGH && thrashing > thrashing_limit) {
+        /* Page cache is thrashing while memory is low */
+        kill_reason = LOW_MEM_AND_THRASHING;
+        snprintf(kill_desc, sizeof(kill_desc), "%s watermark is breached and thrashing (%"
+            PRId64 "%%)", wmark > WMARK_LOW ? "min" : "low", thrashing);
+        cut_thrashing_limit = true;
+        /* Do not kill perceptible apps because of thrashing */
+        min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+    } else if (reclaim == DIRECT_RECLAIM && thrashing > thrashing_limit) {
+        /* Page cache is thrashing while in direct reclaim (mostly happens on lowram devices) */
+        kill_reason = DIRECT_RECL_AND_THRASHING;
+        snprintf(kill_desc, sizeof(kill_desc), "device is in direct reclaim and thrashing (%"
+            PRId64 "%%)", thrashing);
+        cut_thrashing_limit = true;
+        /* Do not kill perceptible apps because of thrashing */
+        min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+    }
+
+    /* Kill a process if necessary */
+    if (kill_reason != NONE) {
+        int pages_freed = find_and_kill_process(min_score_adj, kill_reason, kill_desc, &mi,
+                                                &curr_tm);
+        if (pages_freed > 0) {
+            killing = true;
+            if (cut_thrashing_limit) {
+                /*
+                 * Cut thrasing limit by thrashing_limit_decay_pct percentage of the current
+                 * thrashing limit until the system stops thrashing.
+                 */
+                thrashing_limit = (thrashing_limit * (100 - thrashing_limit_decay_pct)) / 100;
+            }
+        }
+    }
+
+no_kill:
+    /* Do not poll if kernel supports pidfd waiting */
+    if (is_waiting_for_kill()) {
+        /* Pause polling if we are waiting for process death notification */
+        poll_params->update = POLLING_PAUSE;
+        return;
+    }
+
+    /*
+     * Start polling after initial PSI event;
+     * extend polling while device is in direct reclaim or process is being killed;
+     * do not extend when kswapd reclaims because that might go on for a long time
+     * without causing memory pressure
+     */
+    if (events || killing || reclaim == DIRECT_RECLAIM) {
+        poll_params->update = POLLING_START;
+    }
+
+    /* Decide the polling interval */
+    if (swap_is_low || killing) {
+        /* Fast polling during and after a kill or when swap is low */
+        poll_params->polling_interval_ms = PSI_POLL_PERIOD_SHORT_MS;
+    } else {
+        /* By default use long intervals */
+        poll_params->polling_interval_ms = PSI_POLL_PERIOD_LONG_MS;
+    }
+}
+
+static void mp_event_common(int data, uint32_t events, struct polling_params *poll_params) {
+    unsigned long long evcount;
+    int64_t mem_usage, memsw_usage;
+    int64_t mem_pressure;
+    union meminfo mi;
+    struct zoneinfo zi;
+    struct timespec curr_tm;
+    static unsigned long kill_skip_count = 0;
+    enum vmpressure_level level = (enum vmpressure_level)data;
+    long other_free = 0, other_file = 0;
+    int min_score_adj;
+    int minfree = 0;
+    static struct reread_data mem_usage_file_data = {
+        .filename = MEMCG_MEMORY_USAGE,
+        .fd = -1,
+    };
+    static struct reread_data memsw_usage_file_data = {
+        .filename = MEMCG_MEMORYSW_USAGE,
+        .fd = -1,
+    };
+
+    if (debug_process_killing) {
+        ALOGI("%s memory pressure event is triggered", level_name[level]);
+    }
+
+    if (!use_psi_monitors) {
+        /*
+         * Check all event counters from low to critical
+         * and upgrade to the highest priority one. By reading
+         * eventfd we also reset the event counters.
+         */
+        for (int lvl = VMPRESS_LEVEL_LOW; lvl < VMPRESS_LEVEL_COUNT; lvl++) {
+            if (mpevfd[lvl] != -1 &&
+                TEMP_FAILURE_RETRY(read(mpevfd[lvl],
+                                   &evcount, sizeof(evcount))) > 0 &&
+                evcount > 0 && lvl > level) {
+                level = static_cast<vmpressure_level>(lvl);
+            }
+        }
+    }
+
+    /* Start polling after initial PSI event */
+    if (use_psi_monitors && events) {
+        /* Override polling params only if current event is more critical */
+        if (!poll_params->poll_handler || data > poll_params->poll_handler->data) {
+            poll_params->polling_interval_ms = PSI_POLL_PERIOD_SHORT_MS;
+            poll_params->update = POLLING_START;
+        }
+    }
+
+    if (clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm) != 0) {
+        ALOGE("Failed to get current time");
+        return;
+    }
+
+    if (kill_timeout_ms &&
+        get_time_diff_ms(&last_kill_tm, &curr_tm) < static_cast<long>(kill_timeout_ms)) {
+        /*
+         * If we're within the no-kill timeout, see if there's pending reclaim work
+         * from the last killed process. If so, skip killing for now.
+         */
+        if (is_kill_pending()) {
+            kill_skip_count++;
+            return;
+        }
+        /*
+         * Process is dead, stop waiting. This has no effect if pidfds are supported and
+         * death notification already caused waiting to stop.
+         */
+        stop_wait_for_proc_kill(true);
+    } else {
+        /*
+         * Killing took longer than no-kill timeout. Stop waiting for the last process
+         * to die because we are ready to kill again.
+         */
+        stop_wait_for_proc_kill(false);
+    }
+
+    if (kill_skip_count > 0) {
+        ALOGI("%lu memory pressure events were skipped after a kill!",
+              kill_skip_count);
+        kill_skip_count = 0;
+    }
+
+    if (meminfo_parse(&mi) < 0 || zoneinfo_parse(&zi) < 0) {
+        ALOGE("Failed to get free memory!");
+        return;
+    }
+
+    if (use_minfree_levels) {
+        int i;
+
+        other_free = mi.field.nr_free_pages - zi.totalreserve_pages;
+        if (mi.field.nr_file_pages > (mi.field.shmem + mi.field.unevictable + mi.field.swap_cached)) {
+            other_file = (mi.field.nr_file_pages - mi.field.shmem -
+                          mi.field.unevictable - mi.field.swap_cached);
+        } else {
+            other_file = 0;
+        }
+
+        min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+        for (i = 0; i < lowmem_targets_size; i++) {
+            minfree = lowmem_minfree[i];
+            if (other_free < minfree && other_file < minfree) {
+                min_score_adj = lowmem_adj[i];
+                break;
+            }
+        }
+
+        if (min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
+            if (debug_process_killing) {
+                ALOGI("Ignore %s memory pressure event "
+                      "(free memory=%ldkB, cache=%ldkB, limit=%ldkB)",
+                      level_name[level], other_free * page_k, other_file * page_k,
+                      (long)lowmem_minfree[lowmem_targets_size - 1] * page_k);
+            }
+            return;
+        }
+
+        goto do_kill;
+    }
+
+    if (level == VMPRESS_LEVEL_LOW) {
+        record_low_pressure_levels(&mi);
+    }
+
+    if (level_oomadj[level] > OOM_SCORE_ADJ_MAX) {
+        /* Do not monitor this pressure level */
+        return;
+    }
+
+    if ((mem_usage = get_memory_usage(&mem_usage_file_data)) < 0) {
+        goto do_kill;
+    }
+    if ((memsw_usage = get_memory_usage(&memsw_usage_file_data)) < 0) {
+        goto do_kill;
+    }
+
+    // Calculate percent for swappinness.
+    mem_pressure = (mem_usage * 100) / memsw_usage;
+
+    if (enable_pressure_upgrade && level != VMPRESS_LEVEL_CRITICAL) {
+        // We are swapping too much.
+        if (mem_pressure < upgrade_pressure) {
+            level = upgrade_level(level);
+            if (debug_process_killing) {
+                ALOGI("Event upgraded to %s", level_name[level]);
+            }
+        }
+    }
+
+    // If we still have enough swap space available, check if we want to
+    // ignore/downgrade pressure events.
+    if (mi.field.free_swap >=
+        mi.field.total_swap * swap_free_low_percentage / 100) {
+        // If the pressure is larger than downgrade_pressure lmk will not
+        // kill any process, since enough memory is available.
+        if (mem_pressure > downgrade_pressure) {
+            if (debug_process_killing) {
+                ALOGI("Ignore %s memory pressure", level_name[level]);
+            }
+            return;
+        } else if (level == VMPRESS_LEVEL_CRITICAL && mem_pressure > upgrade_pressure) {
+            if (debug_process_killing) {
+                ALOGI("Downgrade critical memory pressure");
+            }
+            // Downgrade event, since enough memory available.
+            level = downgrade_level(level);
+        }
+    }
+
+do_kill:
+    if (low_ram_device) {
+        /* For Go devices kill only one task */
+        if (find_and_kill_process(level_oomadj[level], -1, NULL, &mi, &curr_tm) == 0) {
+            if (debug_process_killing) {
+                ALOGI("Nothing to kill");
+            }
+        }
+    } else {
+        int pages_freed;
+        static struct timespec last_report_tm;
+        static unsigned long report_skip_count = 0;
+
+        if (!use_minfree_levels) {
+            /* Free up enough memory to downgrate the memory pressure to low level */
+            if (mi.field.nr_free_pages >= low_pressure_mem.max_nr_free_pages) {
+                if (debug_process_killing) {
+                    ALOGI("Ignoring pressure since more memory is "
+                        "available (%" PRId64 ") than watermark (%" PRId64 ")",
+                        mi.field.nr_free_pages, low_pressure_mem.max_nr_free_pages);
+                }
+                return;
+            }
+            min_score_adj = level_oomadj[level];
+        }
+
+        pages_freed = find_and_kill_process(min_score_adj, -1, NULL, &mi, &curr_tm);
+
+        if (pages_freed == 0) {
+            /* Rate limit kill reports when nothing was reclaimed */
+            if (get_time_diff_ms(&last_report_tm, &curr_tm) < FAIL_REPORT_RLIMIT_MS) {
+                report_skip_count++;
+                return;
+            }
+        }
+
+        /* Log whenever we kill or when report rate limit allows */
+        if (use_minfree_levels) {
+            ALOGI("Reclaimed %ldkB, cache(%ldkB) and "
+                "free(%" PRId64 "kB)-reserved(%" PRId64 "kB) below min(%ldkB) for oom_adj %d",
+                pages_freed * page_k,
+                other_file * page_k, mi.field.nr_free_pages * page_k,
+                zi.totalreserve_pages * page_k,
+                minfree * page_k, min_score_adj);
+        } else {
+            ALOGI("Reclaimed %ldkB at oom_adj %d",
+                pages_freed * page_k, min_score_adj);
+        }
+
+        if (report_skip_count > 0) {
+            ALOGI("Suppressed %lu failed kill reports", report_skip_count);
+            report_skip_count = 0;
+        }
+
+        last_report_tm = curr_tm;
+    }
+    if (is_waiting_for_kill()) {
+        /* pause polling if we are waiting for process death notification */
+        poll_params->update = POLLING_PAUSE;
+    }
+}

@@ -1,0 +1,26 @@
+
+
+可能的问题，这些尽量准备吧，即使没有问，心里有底也可以补充讲出来。
+
+1. psi全称？谁做的？linux什么时候加上的
+2. psi对比vmpressure的优势是什么，或者为什么使用psi
+3. lmkd是什么时候引入的，为什么用lmkd，而不用以前内核方式的lmk
+4. epoll的原理是啥，跟poll，select有啥区别
+5. 为什么跟lmkd的通信用socket，而不用binder或者其他通信方式
+6. meminfo的free size是怎么计算的， zoneinfo的reserved page怎么算的（这个稍难，尽量理解，不求完全理解）
+7. kill_one_process是通过什么实现的
+8. swap回收的具体原理（这个也有点难，尽量理解）
+9. psi的滑动平均是怎么计算的
+10. psi的full和some有什么区别
+11. lmkd中samsung有哪些改进方案
+
+几个小建议参考下哈。
+
+1. 示意图比较少，看看有没有哪些部分用示意图更容易说明，譬如主程序流程或者PSI计算流程，用流程图或者序列图来讲会好点。总之，能用图的尽量用图，这样比较容易被认可
+
+2. 补充一些背景知识，譬如PSI来历，lmk历史，他们之间的关系，这里就可以用图片说明。psi和vmpressure的优劣对比之类。譬如https://www.cnblogs.com/Linux-tech/p/12961296.html 这里关于full和some的psi的两个cpu/memory的计算方法图很清晰，可以参考
+
+3. 适当增加一些源代码，这个不是用来讲的，但可以使文章更加具有说服力
+
+adj_score算法解析：https://justinwei.blog.csdn.net/article/details/121821759
+

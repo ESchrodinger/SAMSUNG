@@ -1,0 +1,44 @@
+[杨海峰 / Haifeng Yang] 2022/6/16 09:02
+Android Studio无法连网更新
+出现这种情况，需要更改一下代理服务器，路径为：
+Tools -> SDK Manager -> HTTP Proxy  或者  File -> settings -> HTTP Proxy
+1、勾选Auto-detect proxy settings，然后填入以下代理
+http://109.131.7.12:8080/SGMCSW.pac
+2、如果上面的方法不行，则勾选Manual proxy configuration及HTTP，然后
+Host name: 109.131.7.11    Port number: 8080
+或
+Host name: 109.131.7.138  Port number: 8088   我的电脑是这个OK的
+然后
+No proxy for：10.252.*
+
+
+新建工程后，因为我厂的代理问题，需要修改build.gradle文件
+repositories都必须替换成下面的函数（2个）：
+repositories {
+    maven { url "http://10.252.250.53:8081/lm/content/groups/public/"
+allowInsecureProtocol = true }
+    google()
+}
+allptoject{
+    repositories{
+        maven { url "http://10.252.250.53:8081/lm/content/groups/public/" 
+allowInsecureProtocol = true}
+        google()
+    }
+}
+
+local.properties要加
+ndk.dir=D\:\\AndroidSDK\\ndk-bundle
+
+app下面的build.gradle的依赖得改成
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
+}
+这个版本号才对
+好吧，这个其实不用改，刚创建是会报错，用其他项目打开就不会报错了
+

@@ -1,0 +1,1311 @@
+<!doctype html>
+<html lang="zh-CN">
+ <head> 
+  <meta charset="utf-8"> 
+  <link rel="canonical" href="https://blog.csdn.net/shift_wwx/article/details/121593698"> 
+  <meta http-equiv="content-type" content="text/html; charset=utf-8"> 
+  <meta name="renderer" content="webkit"> 
+  <meta name="force-rendering" content="webkit"> 
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
+  <meta name="report" content="{&quot;pid&quot;: &quot;blog&quot;, &quot;spm&quot;:&quot;1001.2101&quot;}"> 
+  <meta name="referrer" content="always"> 
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <link rel="alternate" media="handheld" href="#"> 
+  <meta name="shenma-site-verification" content="5a59773ab8077d4a62bf469ab966a63b_1497598848"> 
+  <meta name="applicable-device" content="pc"> 
+  <link href="https://g.csdnimg.cn/static/logo/favicon32.ico" rel="shortcut icon" type="image/x-icon"> 
+  <title>Android lmkd 机制详解（一）_私房菜的博客-CSDN博客_lmkd</title>  
+  <meta name="keywords" content="lmkd"> 
+  <meta name="csdn-baidu-search" content="{&quot;autorun&quot;:true,&quot;install&quot;:true,&quot;keyword&quot;:&quot;lmkd&quot;}"> 
+  <meta name="description" content="lmkd，全称为Low Memory Killer Daemon，用以监控正在运行的Android 系统的内存状态，以及通过杀死最不重要进程来应对高内存压力，以保持系统在可接受的水平上运行。过去，Android 使用内存LMK 驱动程序来监控系统内存的压力，这是一种依赖于硬编码值的硬件机制。从Kernel 4.12开始，LMK驱动程序从上游内核中移除，由应用空间的 lmkd 执行内存监控和进程终止任务。">  
+  <link rel="stylesheet" type="text/css" href="https://csdnimg.cn/release/blogv2/dist/pc/css/detail_enter-dad2b31799.min.css">   
+  <link rel="stylesheet" type="text/css" href="https://csdnimg.cn/release/blogv2/dist/pc/themesSkin/skin-thespecialists/skin-thespecialists-085bbd0414.min.css">     
+  <link rel="stylesheet" type="text/css" href="https://csdnimg.cn/public/sandalstrap/1.4/css/sandalstrap.min.css"> 
+  <style>.MathJax_Display {text-align: center; margin: 1em 0em; position: relative; display: block!important; text-indent: 0; max-width: none; max-height: none; min-width: 0; min-height: 0; width: 100%} .MathJax .merror {background-color: #FFFF88; color: #CC0000; border: 1px solid #CC0000; padding: 1px 3px; font-style: normal; font-size: 90%} .MathJax .MJX-monospace {font-family: monospace} .MathJax .MJX-sans-serif {font-family: sans-serif} #MathJax_Tooltip {background-color: InfoBackground; color: InfoText; border: 1px solid black; box-shadow: 2px 2px 5px #AAAAAA; -webkit-box-shadow: 2px 2px 5px #AAAAAA; -moz-box-shadow: 2px 2px 5px #AAAAAA; -khtml-box-shadow: 2px 2px 5px #AAAAAA; filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=2, OffY=2, Color='gray', Positive='true'); padding: 3px 4px; z-index: 401; position: absolute; left: 0; top: 0; width: auto; height: auto; display: none} .MathJax {display: inline; font-style: normal; font-weight: normal; line-height: normal; font-size: 100%; font-size-adjust: none; text-indent: 0; text-align: left; text-transform: none; letter-spacing: normal; word-spacing: normal; word-wrap: normal; white-space: nowrap; float: none; direction: ltr; max-width: none; max-height: none; min-width: 0; min-height: 0; border: 0; padding: 0; margin: 0} .MathJax:focus, body :focus .MathJax {display: inline-table} .MathJax.MathJax_FullWidth {text-align: center; display: table-cell!important; width: 10000em!important} .MathJax img, .MathJax nobr, .MathJax a {border: 0; padding: 0; margin: 0; max-width: none; max-height: none; min-width: 0; min-height: 0; vertical-align: 0; line-height: normal; text-decoration: none} img.MathJax_strut {border: 0!important; padding: 0!important; margin: 0!important; vertical-align: 0!important} .MathJax span {display: inline; position: static; border: 0; padding: 0; margin: 0; vertical-align: 0; line-height: normal; text-decoration: none} .MathJax nobr {white-space: nowrap!important} .MathJax img {display: inline!important; float: none!important} .MathJax * {transition: none; -webkit-transition: none; -moz-transition: none; -ms-transition: none; -o-transition: none} .MathJax_Processing {visibility: hidden; position: fixed; width: 0; height: 0; overflow: hidden} .MathJax_Processed {display: none!important} .MathJax_ExBox {display: block!important; overflow: hidden; width: 1px; height: 60ex; min-height: 0; max-height: none} .MathJax .MathJax_EmBox {display: block!important; overflow: hidden; width: 1px; height: 60em; min-height: 0; max-height: none} .MathJax_LineBox {display: table!important} .MathJax_LineBox span {display: table-cell!important; width: 10000em!important; min-width: 0; max-width: none; padding: 0; border: 0; margin: 0} .MathJax .MathJax_HitBox {cursor: text; background: white; opacity: 0; filter: alpha(opacity=0)} .MathJax .MathJax_HitBox * {filter: none; opacity: 1; background: transparent} #MathJax_Tooltip * {filter: none; opacity: 1; background: transparent} @font-face {font-family: MathJax_Main; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Main-Regular.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Main-Regular.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Main-bold; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Main-Bold.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Main-Bold.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Main-italic; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Main-Italic.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Main-Italic.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Math-italic; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Math-Italic.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Math-Italic.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Caligraphic; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Caligraphic-Regular.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Caligraphic-Regular.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Size1; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Size1-Regular.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Size1-Regular.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Size2; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Size2-Regular.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Size2-Regular.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Size3; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Size3-Regular.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Size3-Regular.otf?V=2.7.2') format('opentype')} @font-face {font-family: MathJax_Size4; src: url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/woff/MathJax_Size4-Regular.woff?V=2.7.2') format('woff'), url('https://csdnimg.cn/release/blog_mathjax/fonts/HTML-CSS/TeX/otf/MathJax_Size4-Regular.otf?V=2.7.2') format('opentype')} .MathJax .noError {vertical-align: ; font-size: 90%; text-align: left; color: black; padding: 1px 3px; border: 1px solid}</style>  
+ </head> 
+ <body class="nodata " style="">    
+  <link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/pc/css/blog_code-01256533b5.min.css"> 
+  <link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/chart-3456820cac.css">  
+  <div class="main_father clearfix d-flex justify-content-center mainfather-concision" style="height:100%;"> 
+   <div class="container clearfix container-concision" id="mainBox">  
+    <main style="width:100%">  
+     <div class="blog-content-box"> 
+      <div class="article-header-box"> 
+       <div class="article-header"> 
+        <div class="article-title-box"> 
+         <h1 class="title-article" id="articleContentId">Android lmkd 机制详解（一）</h1> 
+        </div> 
+        <div class="article-info-box"> 
+         <div class="article-bar-top"> 
+          <img class="article-type-img" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Foriginal.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+          <div class="bar-content"> 
+           <a class="follow-nickName " href="https://justinwei.blog.csdn.net" target="_blank" rel="noopener">私房菜</a> 
+           <img class="article-time-img article-heard-img" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewUpTime2.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+           <span class="time">已于&nbsp;2022-01-27 13:56:34&nbsp;修改</span> 
+           <img class="article-read-img article-heard-img" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FarticleReadEyes2.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+           <span class="read-count">5252</span> 
+           <a id="blog_detail_zk_collection" class="un-collection" data-report-click="{&quot;mod&quot;:&quot;popu_823&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4232&quot;,&quot;ab&quot;:&quot;new&quot;}"> <img class="article-collect-img article-heard-img un-collect-status isdefault" style="display:inline-block" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FtobarCollect2.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> <img class="article-collect-img article-heard-img collect-status isactive" style="display:none" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FtobarCollectionActive2.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> <span class="name">收藏</span> <span class="get-collection"> 15 </span> </a> 
+          </div> 
+         </div> 
+         <div class="blog-tags-box"> 
+          <div class="tags-box artic-tag-box"> 
+           <span class="label">分类专栏：</span> 
+           <a class="tag-link" href="https://blog.csdn.net/jingerppp/category_9275002.html" target="_blank" rel="noopener">android 源码分析</a> 
+           <a class="tag-link" href="https://blog.csdn.net/jingerppp/category_11877555.html" target="_blank" rel="noopener">Linux 内存管理--基于Android 平台</a> 
+           <span class="label">文章标签：</span> 
+           <a data-report-click="{&quot;mod&quot;:&quot;popu_626&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4223&quot;,&quot;strategy&quot;:&quot;android&quot;,&quot;ab&quot;:&quot;new&quot;}" class="tag-link" href="https://so.csdn.net/so/search/s.do?q=android&amp;t=blog&amp;o=vip&amp;s=&amp;l=&amp;f=&amp;viparticle=" target="_blank" rel="noopener">android</a> 
+           <a data-report-click="{&quot;mod&quot;:&quot;popu_626&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4223&quot;,&quot;strategy&quot;:&quot;lmkd&quot;,&quot;ab&quot;:&quot;new&quot;}" class="tag-link" href="https://so.csdn.net/so/search/s.do?q=lmkd&amp;t=blog&amp;o=vip&amp;s=&amp;l=&amp;f=&amp;viparticle=" target="_blank" rel="noopener">lmkd</a> 
+           <a data-report-click="{&quot;mod&quot;:&quot;popu_626&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4223&quot;,&quot;strategy&quot;:&quot;LMK&quot;,&quot;ab&quot;:&quot;new&quot;}" class="tag-link" href="https://so.csdn.net/so/search/s.do?q=LMK&amp;t=blog&amp;o=vip&amp;s=&amp;l=&amp;f=&amp;viparticle=" target="_blank" rel="noopener">LMK</a> 
+           <a data-report-click="{&quot;mod&quot;:&quot;popu_626&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4223&quot;,&quot;strategy&quot;:&quot;PSI&quot;,&quot;ab&quot;:&quot;new&quot;}" class="tag-link" href="https://so.csdn.net/so/search/s.do?q=PSI&amp;t=blog&amp;o=vip&amp;s=&amp;l=&amp;f=&amp;viparticle=" target="_blank" rel="noopener">PSI</a> 
+          </div> 
+         </div> 
+         <div class="up-time">
+          <span>于&nbsp;2021-11-28 17:23:02&nbsp;首次发布</span>
+         </div> 
+         <div class="slide-content-box"> 
+          <div class="article-copyright"> 
+           <div class="creativecommons">
+             版权声明：本文为博主原创文章，遵循
+            <a href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener"> CC 4.0 BY-SA </a>版权协议，转载请附上原文出处链接和本声明。 
+           </div> 
+           <div class="article-source-link">
+             本文链接：
+            <a href="https://blog.csdn.net/shift_wwx/article/details/121593698" target="_blank">https://blog.csdn.net/shift_wwx/article/details/121593698</a> 
+           </div> 
+          </div> 
+         </div> 
+         <div class="operating"> 
+          <a class="href-article-edit slide-toggle">版权</a> 
+         </div> 
+        </div> 
+       </div> 
+      </div> 
+      <div id="blogHuaweiyunAdvert"></div> 
+      <div id="blogColumnPayAdvert"> 
+       <div class="column-group"> 
+        <div class="column-group-item column-group0 "> 
+         <div class="item-l"> 
+          <a class="item-target" href="https://blog.csdn.net/jingerppp/category_11877555.html" target="_blank" title="Linux 内存管理--基于Android 平台" data-report-view="{&quot;spm&quot;:&quot;1001.2101.3001.6332&quot;}" data-report-click="{&quot;spm&quot;:&quot;1001.2101.3001.6332&quot;}"> <img class="item-target" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20190927151101105.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_224%2Cw_224&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> <span class="title item-target"> <span> <span class="tit">Linux 内存管理--基于Android 平台</span> <span class="dec more">同时被 2 个专栏收录<img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewArrowDown1White.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""></span> </span> </span> </a> 
+         </div> 
+         <div class="item-m"> 
+          <span>22 篇文章</span> 
+          <span>3 订阅</span> 
+          <span class="old-add-new-box"> <span class="price">¥49.90</span> <span class="oldprice">¥99.00</span> </span> 
+         </div> 
+         <div class="item-r"> 
+          <a style="display:none" class="item-target column-studyvip-free studyvip-subscribe column-studyvip-ajax" data-type="true" data-id="11877555"> <img class="item-target column-studyvip-icon" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fcomponents%2Fimg%2FstudyVipIcon.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698">会员已订阅 </a> 
+          <a style="display:inline-block" class="item-target column-studyvip-free studyvip-unsubscribe column-studyvip-ajax" data-type="false" data-id="11877555"> <img class="item-target column-studyvip-icon" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fcomponents%2Fimg%2FstudyVipIcon.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698">会员免费订 </a> 
+          <a class="item-target column-studyvip-discount column-studyvip-pass" data-report-view="{&quot;spm&quot;:&quot;1001.2015.3001.8590&quot;}" data-report-click="{&quot;spm&quot;:&quot;1001.2015.3001.8590&quot;}">8折续费 </a> 
+         </div> 
+        </div> 
+        <div class="column-group-item column-group1 "> 
+         <div class="item-l"> 
+          <a class="item-target" href="https://blog.csdn.net/jingerppp/category_9275002.html" target="_blank" title="android 源码分析" data-report-view="{&quot;spm&quot;:&quot;1001.2101.3001.6332&quot;}" data-report-click="{&quot;spm&quot;:&quot;1001.2101.3001.6332&quot;}"> <img class="item-target" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20181207165449492.jpg%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_224%2Cw_224&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> <span class="title item-target"> <span> <span class="tit">android 源码分析</span> </span> </span> </a> 
+         </div> 
+         <div class="item-m"> 
+          <span>63 篇文章</span> 
+          <span>25 订阅</span> 
+         </div> 
+         <div class="item-r"> 
+          <a class="item-target article-column-bt articleColumnFreeBt" data-id="9275002">订阅专栏</a> 
+         </div> 
+        </div> 
+       </div> 
+      </div> 
+      <div class="learning_the_member_box"> 
+       <a href="https://www.csdn.net/vip?utm_source=bkzl_cjhy_ckqy" target="_blank"> 
+        <div class="left">
+         <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FiconVIpCrown.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="">
+         <span>您已是超级会员，正在免费阅读会员专享内容</span>
+        </div> 
+        <div class="right">
+         <span>查看更多超级会员权益</span>
+         <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fcomponents%2Fimg%2FvipIconArrowLeftWhite.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="">
+        </div> </a> 
+      </div> 
+      <article class="baidu_pl"> 
+       <div id="article_content" class="article_content clearfix"> 
+        <link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-b3c43d3711.css"> 
+        <div id="content_views" class="htmledit_views"> 
+         <p><strong>源码基于：Android R</strong></p> 
+         <p></p> 
+         <p></p> 
+         <h1>0. 前言</h1> 
+         <p>&nbsp;lmkd，全称为Low Memory Killer Daemon，用以监控正在运行的Android 系统的内存状态，以及<span style="color:#0d0016;">通过杀死最不重要进程来应对高内存压力，以保持系统在可接受的水平上运行。</span></p> 
+         <p><span style="color:#0d0016;">过去，Android 使用内存LMK 驱动程序来监控系统内存的压力，这是一种依赖于硬编码值的硬件机制。从<strong>Kernel 4.12</strong>开始，LMK驱动程序从上游内核中移除，由应用空间的 <strong>lmkd </strong>执行内存监控和进程终止任务。</span></p> 
+         <p><span style="color:#0d0016;">Android 10 以及更高版本支持新的lmkd 模式，它使用<a class="link-info" href="https://justinwei.blog.csdn.net/article/details/121537332" title="&nbsp;PSI&nbsp;">&nbsp;PSI&nbsp;</a>监视器来检测内存压力。<a class="link-info" href="https://justinwei.blog.csdn.net/article/details/121537332" title="PSI&nbsp;">PSI&nbsp;</a>&nbsp;用以测量由于内存不足导致任务延迟的时间。由于这些岩石会直接影响到用户体验，因此它们代表了确定内存压力严重的便捷指标。<a class="link-info" href="https://justinwei.blog.csdn.net/article/details/121537332" title="PSI&nbsp;">PSI&nbsp;</a>&nbsp;监视器允许特权用户进程（例如lmkd）指定这些延迟的阈值，然后订阅当突破阈值时来自kernel 的事件。</span></p> 
+         <p><span style="color:#0d0016;">本文主要记录 lmkd 的机制和特点，不同属性的意义，以及根据代码剖析整个过程。</span></p> 
+         <p><span style="color:#0d0016;">&nbsp;</span></p> 
+         <h2><strong><span style="color:#0d0016;">0.1&nbsp;内核中LMK 驱动程序的缺点</span></strong></h2> 
+         <p><span style="color:#0d0016;">由于存在大量问题，Android 弃用了 LMK 驱动程序，问题包括：</span></p> 
+         <ul>
+          <li><span style="color:#0d0016;">对于低内存设备，必须主动进行调整，即便如此，在处理涉及支持大文件的活跃页面缓存的工作负载时，其性能也较差。性能不良会导致出现抖动，但不会kill。</span></li>
+          <li><span style="color:#0d0016;">LMK 内核驱动程序依赖于可用内存限制，不会根据内存压力进行扩缩。</span></li>
+          <li><span style="color:#0d0016;">由于设计的严格性，合作伙伴通常会自定义该驱动程序，使其可以在自己的设备上使用。</span></li>
+          <li><span style="color:#0d0016;">LMK 驱动程序已挂接到 Slab Shrinker API，该 API 并非为了执行繁重操作（例如搜索并终止目标）而设计，这类操作会导致&nbsp;<code>vmscan</code>&nbsp;进程变慢。</span></li>
+         </ul> 
+         <p><span style="color:#0d0016;">&nbsp;</span></p> 
+         <h1><strong><span style="color:#0d0016;">1.&nbsp; lmkd 简介</span></strong></h1> 
+         <p><span style="color:#0d0016;">用户空间&nbsp;<code>lmkd</code>&nbsp;可实现与内核中的驱动程序相同的功能，但它使用现有的内核机制检测和评估内存压力。这些机制包括使用内核生成的 vmpressure 事件或PSI 监视器，用以获取内存压力等级的通知，以及使用内存 从group 功能来限制基于进程重要性而分配给每个进程的资源。</span></p> 
+         <p>Android 9 及之后的版本，lmkd 会在未检测到内核LMK 驱动程序时激活。因为lmkd 要求内核支持 cgroup，因此，必须配置kernel：</p> 
+         <div> 
+          <pre><code>CONFIG_ANDROID_LOW_MEMORY_KILLER=n
+CONFIG_MEMCG=y
+CONFIG_MEMCG_SWAP=y</code></pre> 
+         </div> 
+         <h2>1.1&nbsp; kill strategies</h2> 
+         <p>lmkd 支持的kill 策略基于 vmpressure 事件或 <span style="color:#0d0016;">&nbsp;<a class="link-info" href="https://justinwei.blog.csdn.net/article/details/121537332" title="PSI&nbsp;">PSI&nbsp;</a></span>监视器、严重程度，以及交换利用率等其他提示。kill 策略在低内存和高性能设备之间是存在差异的：</p> 
+         <ul>
+          <li>对于内存不足的设备，一般情况下，高内存压力是可以容忍的；</li>
+          <li>对于高性能设备，如果出现内存压力，则会视为异常情况，应及时修复，以免影响整体性能；</li>
+         </ul> 
+         <p>低内存还是高性能，可以通过属性 <strong>ro.config.low_ram</strong> 来配置。</p> 
+         <p>lmkd 依然支持旧模式，在该模式下，它使用与内核LMK 驱动程序相同的策略（that is, free memory and file cache thresholds）。通过设置属性<strong> ro.lmk.use_minfree_levels </strong>的属性值为true 来使能旧模式。</p> 
+         <p></p> 
+         <h2>1.2 lmkd 中配置属性</h2> 
+         <table border="1" cellpadding="1" cellspacing="1">
+          <tbody>
+           <tr>
+            <td style="text-align:center;width:165px;">属性</td>
+            <td style="text-align:center;width:444px;">说明</td>
+            <td style="text-align:center;width:54px;">默认值</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.config.low_ram</td>
+            <td style="width:444px;">指定设备是低内存还是高性能设备</td>
+            <td style="width:54px;">false</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.use_psi</td>
+            <td style="width:444px;">使用PSI 监视器，而不是vmpressure</td>
+            <td style="width:54px;">true</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.use_minfree_levels</td>
+            <td style="width:444px;">使用可用内存和文件缓存阈值来决定kill 策略，这是LMK驱动程序时的旧kill 策略</td>
+            <td style="width:54px;">false</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.low</td>
+            <td style="width:444px;">在低vmpressure 水平下可被终止的进程的最低oom_adj 分数</td>
+            <td style="width:54px;">1001<br> 已停用</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.medium</td>
+            <td style="width:444px;">在中等vmpressure水平下可被终止的进程的最低oom_adj 分数</td>
+            <td style="width:54px;">800<br> 缓存的或非必要的服务</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.critical</td>
+            <td style="width:444px;">在临界vmpressure水平下可被终止的进程的最低oom_adj 分数</td>
+            <td style="width:54px;">0<br> 任何进程</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.critical_upgrade</td>
+            <td style="width:444px;">支持升级临界水平</td>
+            <td style="width:54px;">false</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.upgrade_pressure</td>
+            <td style="width:444px;">用于系统交换次数过多，在该level上的mem_pressure上限值将被更新</td>
+            <td style="width:54px;">100<br> 已停用</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.downgrade_pressure</td>
+            <td style="width:444px;">由于仍有足够的有效内存使用，在该level上vmpressure事件的mem_pressure 下限值会被忽略</td>
+            <td style="width:54px;">100<br> 已停用</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.kill_heaviest_task</td>
+            <td style="width:444px;">kill 符合条件的最繁重的task（最好决定） <strong>VS</strong> kill 符合条件的任何task（最快决定）</td>
+            <td style="width:54px;">true</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.kill_timeout_ms</td>
+            <td style="width:444px;">从某次kill 后到其他kill 完成之前的持续时间，ms</td>
+            <td style="width:54px;">0<br> 已停用</td>
+           </tr>
+           <tr>
+            <td style="width:165px;">ro.lmk.debug</td>
+            <td style="width:444px;">启动lmkd debug 日志</td>
+            <td style="width:54px;">false</td>
+           </tr>
+          </tbody>
+         </table> 
+         <p>配置示例：</p> 
+         <pre><code class="language-bash">PRODUCT_PROPERTY_OVERRIDES += \
+    ro.lmk.low=1001 \
+    ro.lmk.medium=800 \
+    ro.lmk.critical=0 \
+    ro.lmk.critical_upgrade=false \
+    ro.lmk.upgrade_pressure=100 \
+    ro.lmk.downgrade_pressure=100 \
+    ro.lmk.kill_heaviest_task=true \
+    ro.lmk.use_psi=true</code></pre> 
+         <p></p> 
+         <h2>1.3 Android 11 中的lmkd</h2> 
+         <p>Android 11 通过引入新的kill 策略改进了lmkd。该kill 策略是Android 10 中介绍过的使用 PSI 机制来检测内存压力。Android 11 中的lmkd 会根据内存资源的使用情况和抖动来防止出现内存不足和性能下降。该kill 策略取代了之前的，而且能在高性能和低内存(Android Go)设备中使用。</p> 
+         <p></p> 
+         <p>下表是Android 11 中lmkd 的配置：</p> 
+         <table border="1" cellpadding="1" cellspacing="1">
+          <tbody>
+           <tr>
+            <td colspan="1" rowspan="2" style="text-align:center;width:151px;">属性</td>
+            <td colspan="1" rowspan="2" style="text-align:center;width:490px;">说明</td>
+            <td colspan="2" rowspan="1" style="text-align:center;width:50px;">默认值</td>
+           </tr>
+           <tr>
+            <td style="text-align:center;width:50px;">高性能</td>
+            <td style="text-align:center;width:50px;">低内存</td>
+           </tr>
+           <tr>
+            <td style="width:151px;">ro.lmk.psi_partial_stall_ms</td>
+            <td style="width:490px;">部分PSI阈值，单位为ms，用以触发内存不足的通知。如果设备收到内存压力通知的时间太晚了，可以降低此值，这样可以在较早时候触发通知。如果设备在不必要的情况下收到内存压力通知，可以提高此值，以降低设备对噪声的敏感度。</td>
+            <td style="text-align:center;width:50px;">70</td>
+            <td style="text-align:center;">200</td>
+           </tr>
+           <tr>
+            <td style="width:151px;">ro.lmk.psi_complete_stall_ms</td>
+            <td style="width:490px;">部分PSI阈值，单位为ms，用以触发关键内存的通知。如果设备收到关键内存通知的时间太晚了，可以降低此值，这样可以在较早时候触发通知。如果设备在不必要的情况下收到关键内存通知，可以提高此值，以降低设备对噪声的敏感度。</td>
+            <td colspan="2" rowspan="1" style="text-align:center;width:50px;">700</td>
+           </tr>
+           <tr>
+            <td style="width:151px;">ro.lmk.thrashing_limit</td>
+            <td style="width:490px;">工作集 refault 数量的上限，以占具有文件支持的页面缓存总大小的百分比表示。如果工作集 refault 的数量超过该值，则视为系统对其页面缓存造成抖动。如果设备性能在内存压力期间受到影响，请降低该值以限制抖动。如果因抖动原因而导致设备性能不必要地降低，请提高该值以允许更多抖动。</td>
+            <td style="text-align:center;width:50px;">100</td>
+            <td style="text-align:center;">30</td>
+           </tr>
+           <tr>
+            <td style="width:151px;">ro.lmk.thrashing_limit_decay</td>
+            <td style="width:490px;">抖动阈值衰减，以占在系统无法恢复时（甚至是终止后）用于降低阈值的原始阈值的百分比表示。如果持续抖动导致不必要的终止，请降低该值。如果终止后对持续抖动的响应速度过慢，请提高该值。</td>
+            <td style="text-align:center;width:50px;">10</td>
+            <td style="text-align:center;">50</td>
+           </tr>
+           <tr>
+            <td style="width:151px;">ro.lmk.swap_util_max</td>
+            <td style="width:490px;">最大交换内存量，以占可交换内存总量的百分比表示。如果交换的内存量超过此上限，则表示系统在交换了其大部分可交换内存后仍然存在压力。 当内存压力是由不可交换内存的分配导致时，就可能会发生这种情况，原因在于大部分可交换内存已经交换，所以无法通过交换来缓解这一压力。默认值为 100，这实际上会停用此检查。如果设备的性能在交换利用率较高且可用交换水平未降至 ro.lmk.swap_free_low_percentage 的内存压力期间受到影响，请降低该值以限制交换利用率。</td>
+            <td style="text-align:center;width:50px;">100</td>
+            <td style="text-align:center;">100</td>
+           </tr>
+          </tbody>
+         </table> 
+         <p>以下旧的调节旋钮也可用于新的终止策略。</p> 
+         <table border="1" cellpadding="1" cellspacing="1">
+          <tbody>
+           <tr>
+            <td colspan="1" rowspan="2" style="text-align:center;width:203px;">属性</td>
+            <td colspan="1" rowspan="2" style="text-align:center;width:382px;">说明</td>
+            <td colspan="2" rowspan="1" style="text-align:center;width:102px;">默认值</td>
+           </tr>
+           <tr>
+            <td style="text-align:center;width:50px;">高性能</td>
+            <td style="text-align:center;width:50px;">低内存</td>
+           </tr>
+           <tr>
+            <td colspan="1" style="text-align:center;width:151px;">ro.lmk.swap_free_low_percentage</td>
+            <td colspan="1" style="width:382px;">可用交换水平，以占总交换空间的百分比表示。“lmkd”使用该值作为阈值来判断何时将系统视为交换空间不足。如果“lmkd”因交换空间过多而终止，请降低该百分比。如果“lmkd”终止得太晚，从而导致 OOM 终止，请提高该百分比。</td>
+            <td style="text-align:center;width:58px;">20</td>
+            <td style="text-align:center;width:50px;">10</td>
+           </tr>
+           <tr>
+            <td colspan="1" style="text-align:center;width:203px;">ro.lmk.debug</td>
+            <td colspan="1" style="width:382px;">这会启用“lmkd”调试日志。在调节时启用调试。</td>
+            <td colspan="2" rowspan="1" style="text-align:center;width:102px;">false</td>
+           </tr>
+          </tbody>
+         </table> 
+         <p></p> 
+         <p></p> 
+         <p>通过上面描述，对于lmkd 应该是有了大概的了解，下面对代码进行剖析。</p> 
+         <h1>2. lmkd 的启动</h1> 
+         <pre><code class="language-bash">service lmkd /system/bin/lmkd
+    class core
+    user lmkd
+    group lmkd system readproc
+    capabilities DAC_OVERRIDE KILL IPC_LOCK SYS_NICE SYS_RESOURCE
+    critical
+    socket lmkd seqpacket+passcred 0660 system system
+    writepid /dev/cpuset/system-background/tasks</code></pre> 
+         <p></p> 
+         <h1>3. main</h1> 
+         <p>system/memory/lmkd/lmkd.cpp</p> 
+         <pre><code class="language-cpp">int main(int argc, char **argv) {
+    ...
+    update_props(); //step 1，进程最初，需要获取所有的lmkd 的prop，为init 做准备
+
+    ctx = create_android_logger(KILLINFO_LOG_TAG);
+
+    if (!init()) { //step 2，init 处理所有核心的初始化工作
+        if (!use_inkernel_interface) { //step 3，如果不再使用旧的LMK 驱动程序
+            ...
+            //step4, 给虚拟空间上锁，防止内存交换
+            if (mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT) &amp;&amp; (errno != EINVAL)) {
+                ALOGW("mlockall failed %s", strerror(errno));
+            }
+
+            //step 4，添加调度策略，即先进先出
+            struct sched_param param = {
+                    .sched_priority = 1,
+            };
+            if (sched_setscheduler(0, SCHED_FIFO, &amp;param)) {
+                ALOGW("set SCHED_FIFO failed %s", strerror(errno));
+            }
+        }
+
+        mainloop(); //step 5， 进入循环，等待polling
+    }
+
+    android_log_destroy(&amp;ctx);
+
+    ALOGI("exiting");
+    return 0;
+}
+</code></pre> 
+         <p>基本的流程见上面代码的注释部分，可以看到 lmkd 的核心部分在step 2 和step 5，下面将单独两节来说明。</p> 
+         <p>这里需要注意下函数mlockall：</p> 
+         <pre><code class="language-cpp">    if (mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT) &amp;&amp; (errno != EINVAL)) {
+        ALOGW("mlockall failed %s", strerror(errno));
+    }
+</code></pre> 
+         <ul>
+          <li>mlockall函数将调用进程的全部虚拟地址空间加锁。防止出现内存交换，将该进程的地址空间交换到外存上。</li>
+          <li>mlockall将所有映射到进程地址空间的内存上锁。这些页包括： 代码段，数据段，栈段，共享库，共享内存，user space kernel data,memory-mapped file.当函数成功返回的时候，所有的被映射的页都在内存中。</li>
+          <li>flags可取两个值：MCL_CURRENT,MCL_FUTURE 
+           <ul>
+            <li>MCL_CURRENT: 表示对所有已经映射到进程地址空间的页上锁</li>
+            <li>MCL_FUTURE: &nbsp;表示对所有将来映射到进程地空间的页都上锁。</li>
+           </ul></li>
+          <li>函数返回： 成功返回0，出错返回-1</li>
+          <li>此函数有两个重要的应用： real-time algorithms(实时算法) 和 high-security data processing(机密数据的处理) 
+           <ul>
+            <li>real-time algorithms：对时间要非常高。</li>
+           </ul></li>
+          <li>如果进程执行了一个execve类函数，所有的锁都会被删除。</li>
+          <li>内存锁不会被子进程继承。</li>
+          <li>内存锁不会叠加，即使多次调用mlockall函数，只调用一次munlock就会解锁</li>
+         </ul> 
+         <p></p> 
+         <h1>4. init</h1> 
+         <p>代码比较多，这里分步剖析。</p> 
+         <h2>step 1. 创建epoll</h2> 
+         <pre><code class="language-cpp">    epollfd = epoll_create(MAX_EPOLL_EVENTS);
+    if (epollfd == -1) {
+        ALOGE("epoll_create failed (errno=%d)", errno);
+        return -1;
+    }</code></pre> 
+         <p>整个lmkd 都是依赖epoll 机制，这里创建了 9 个event：</p> 
+         <pre><code class="language-cpp">/*
+ * 1 ctrl listen socket, 3 ctrl data socket, 3 memory pressure levels,
+ * 1 lmk events + 1 fd to wait for process death
+ */
+#define MAX_EPOLL_EVENTS (1 + MAX_DATA_CONN + VMPRESS_LEVEL_COUNT + 1 + 1)</code></pre> 
+         <h2>step 2. 初始化socket lmkd</h2> 
+         <pre><code class="language-cpp">    ctrl_sock.sock = android_get_control_socket("lmkd");
+    if (ctrl_sock.sock &lt; 0) {
+        ALOGE("get lmkd control socket failed");
+        return -1;
+    }
+
+    ret = listen(ctrl_sock.sock, MAX_DATA_CONN);
+    if (ret &lt; 0) {
+        ALOGE("lmkd control socket listen failed (errno=%d)", errno);
+        return -1;
+    }
+
+    epev.events = EPOLLIN;
+    ctrl_sock.handler_info.handler = ctrl_connect_handler;
+    epev.data.ptr = (void *)&amp;(ctrl_sock.handler_info);
+    if (epoll_ctl(epollfd, EPOLL_CTL_ADD, ctrl_sock.sock, &amp;epev) == -1) {
+        ALOGE("epoll_ctl for lmkd control socket failed (errno=%d)", errno);
+        return -1;
+    }
+    maxevents++;</code></pre> 
+         <p>&nbsp;ctrl_sock 主要存储的是socket lmkd 的fd 和handle info，主要注意这里的ctrl_connect_handler()</p> 
+         <p>该函数时socket /dev/socket/lmkd 有信息时的处理函数，lmkd 的客户端<strong>AMS.mProcessList</strong> 会通过socket /dev/socket/lmkd 与lmkd 进行通信，详细看<strong>第 6 节</strong>。</p> 
+         <p></p> 
+         <h2>&nbsp;step 3. 确定是否用LMK 驱动程序</h2> 
+         <pre><code class="language-cpp"> #define INKERNEL_MINFREE_PATH "/sys/module/lowmemorykiller/parameters/minfree"
+
+   has_inkernel_module = !access(INKERNEL_MINFREE_PATH, W_OK);
+   use_inkernel_interface = has_inkernel_module;</code></pre> 
+         <p>&nbsp;通过函数access 确认旧的节点是否还存在，用以确认kernel 是否还在用LMK 驱动程序。</p> 
+         <p>之所以有这样的处理，应该是Android 为了兼容旧版本kernel。</p> 
+         <p></p> 
+         <h2>step 4. init_monitors</h2> 
+         <p>该函数是init 函数中的核心了，这里用来注册PSI 的监视器策略或者是common 的adj 策略，并将其添加都epoll 中。</p> 
+         <pre><code class="language-cpp">static bool init_monitors() {
+    /* Try to use psi monitor first if kernel has it */
+    use_psi_monitors = property_get_bool("ro.lmk.use_psi", true) &amp;&amp;
+        init_psi_monitors();
+    /* Fall back to vmpressure */
+    if (!use_psi_monitors &amp;&amp;
+        (!init_mp_common(VMPRESS_LEVEL_LOW) ||
+        !init_mp_common(VMPRESS_LEVEL_MEDIUM) ||
+        !init_mp_common(VMPRESS_LEVEL_CRITICAL))) {
+        ALOGE("Kernel does not support memory pressure events or in-kernel low memory killer");
+        return false;
+    }
+    ...
+    return true;
+}</code></pre> 
+         <p>变量use_psi_monitors 用以确认是使用<span style="color:#0d0016;">&nbsp;<span style="color:#0d0016;"><a class="link-info" href="https://justinwei.blog.csdn.net/article/details/121537332" title="PSI&nbsp;">PSI&nbsp;</a></span>&nbsp;</span>还是vmpressure</p> 
+         <ul>
+          <li>如果使用vmpressure，则通过init_mp_common 来初始化kill 策略；</li>
+          <li>如果使用PSI，则通过init_psi_monitors 来初始化kill 策略；&nbsp;</li>
+         </ul> 
+         <p>所以lmkd 中如果使用<span style="color:#0d0016;">&nbsp;<span style="color:#0d0016;"><a class="link-info" href="https://justinwei.blog.csdn.net/article/details/121537332" title="PSI&nbsp;">PSI&nbsp;</a></span></span>，要求 <span style="color:#1c7331;"><strong>ro.lmk.use_psi</strong></span> 为 true。</p> 
+         <p></p> 
+         <p>另外，lmkd 支持旧模式的kill 策略，只要<span style="color:#1c7331;">&nbsp;<strong>ro.lmk.use_new_strategy </strong></span>设为false，或者将<span style="color:#1c7331;"><strong>ro.lmk.use_minfree_levels</strong></span> 设为true（针对非低内存设备，即<span style="color:#1c7331;"><strong>ro.config.low_ram</strong></span> 不为true）：</p> 
+         <pre><code class="language-cpp">static bool init_psi_monitors() {
+    bool use_new_strategy =
+        property_get_bool("ro.lmk.use_new_strategy", low_ram_device || !use_minfree_levels);</code></pre> 
+         <p></p> 
+         <p>继续深入分析init_psi_monitors：</p> 
+         <pre><code class="language-cpp">static bool init_psi_monitors() {
+    /*
+     * When PSI is used on low-ram devices or on high-end devices without memfree levels
+     * use new kill strategy based on zone watermarks, free swap and thrashing stats
+     */
+    bool use_new_strategy =
+        property_get_bool("ro.lmk.use_new_strategy", low_ram_device || !use_minfree_levels);
+
+    /* In default PSI mode override stall amounts using system properties */
+    if (use_new_strategy) {
+        /* Do not use low pressure level */
+        psi_thresholds[VMPRESS_LEVEL_LOW].threshold_ms = 0;
+        psi_thresholds[VMPRESS_LEVEL_MEDIUM].threshold_ms = psi_partial_stall_ms;
+        psi_thresholds[VMPRESS_LEVEL_CRITICAL].threshold_ms = psi_complete_stall_ms;
+    }
+
+    if (!init_mp_psi(VMPRESS_LEVEL_LOW, use_new_strategy)) {
+        return false;
+    }
+    if (!init_mp_psi(VMPRESS_LEVEL_MEDIUM, use_new_strategy)) {
+        destroy_mp_psi(VMPRESS_LEVEL_LOW);
+        return false;
+    }
+    if (!init_mp_psi(VMPRESS_LEVEL_CRITICAL, use_new_strategy)) {
+        destroy_mp_psi(VMPRESS_LEVEL_MEDIUM);
+        destroy_mp_psi(VMPRESS_LEVEL_LOW);
+        return false;
+    }
+    return true;
+}</code></pre> 
+         <p>函数比较简单的，最开始的变量use_new_strategy 用以确认是使用PSI 策略还是vmpressure。如果是使用PSI 策略，psi_thresholds数组中的threshold_ms 需要重新赋值为prop 指定的值（也就是说支持动态配置）。最后通过init_mp_psi 为每个级别的strategy 进行最后的注册，当然对于PSI，只有some 和full 等级，所以与level 中的medium 和 critical 分别对应。</p> 
+         <p>&nbsp;这里的psi_thresholds 数组中threshold_ms 通过prop：</p> 
+         <ul>
+          <li><span style="color:#1c7331;"><strong>ro.lmk.psi_partial_stall_ms&nbsp; low_ram</strong></span> 默认为200ms，PSI 默认为70ms；</li>
+          <li><span style="color:#1c7331;"><strong>ro.lmk.psi_complete_stall_ms</strong></span>&nbsp; 默认700ms；</li>
+         </ul> 
+         <p></p> 
+         <p>接下来看下init_mp_psi 到底做了些什么：</p> 
+         <pre><code class="language-cpp">static bool init_mp_psi(enum vmpressure_level level, bool use_new_strategy) {
+    int fd;
+
+    /* Do not register a handler if threshold_ms is not set */
+    if (!psi_thresholds[level].threshold_ms) {
+        return true;
+    }
+
+    fd = init_psi_monitor(psi_thresholds[level].stall_type,
+        psi_thresholds[level].threshold_ms * US_PER_MS,
+        PSI_WINDOW_SIZE_MS * US_PER_MS);
+
+    if (fd &lt; 0) {
+        return false;
+    }
+
+    vmpressure_hinfo[level].handler = use_new_strategy ? mp_event_psi : mp_event_common;
+    vmpressure_hinfo[level].data = level;
+    if (register_psi_monitor(epollfd, fd, &amp;vmpressure_hinfo[level]) &lt; 0) {
+        destroy_psi_monitor(fd);
+        return false;
+    }
+    maxevents++;
+    mpevfd[level] = fd;
+
+    return true;
+}</code></pre> 
+         <p>函数比较简单，主要分三步：</p> 
+         <ul>
+          <li>通过init_psi_monitor 将不同level 的值写入节点/proc/pressure/memory，后期阈值如果超过了设定就会触发一次epoll；</li>
+          <li>根据use_new_strategy，选择是新策略mp_event_psi，还是旧模式mp_event_common，详细的策略见第<strong>8 </strong>节和第<strong>10 </strong>节；</li>
+          <li>通过register_psi_monitor 将节点/proc/pressure/memory 添加到epoll 中监听；</li>
+         </ul> 
+         <p></p> 
+         <h2>step 5. 标记进入lmkd 流程</h2> 
+         <pre><code class="language-cpp">property_set("sys.lmk.reportkills", "1");</code></pre> 
+         <p></p> 
+         <h2>&nbsp;step 6. 其他初始化</h2> 
+         <pre><code class="language-cpp">    memset(killcnt_idx, KILLCNT_INVALID_IDX, sizeof(killcnt_idx));
+
+    if (reread_file(&amp;file_data) == NULL) {
+        ALOGE("Failed to read %s: %s", file_data.filename, strerror(errno));
+    }
+
+    pidfd = TEMP_FAILURE_RETRY(sys_pidfd_open(getpid(), 0));
+    if (pidfd &lt; 0) {
+        pidfd_supported = (errno != ENOSYS);
+    } else {
+        pidfd_supported = true;
+        close(pidfd);
+    }</code></pre> 
+         <p>这里主要是reread_file 函数，用来占坑。通过读取 /proc/zoneinfo，创建一个最大size 的buffer，后面的其他节点都直接使用该buffer，而不用再重新malloc。详细看reread_file() 中的buf 变量。</p> 
+         <p>另外，通过sys_pidfd_open，确定是否支持pidfd_open 的syscall。</p> 
+         <p></p> 
+         <p></p> 
+         <p>至此，init 基本剖析完成，主要：</p> 
+         <ul>
+          <li>创建epoll，用以监听 9 个event；</li>
+          <li>初始化socket /dev/socket/lmkd，并将其添加到epoll 中；</li>
+          <li>根据prop <strong><span style="color:#1c7331;">ro.lmk.use_psi</span> </strong>确认是否使用PSI 还是vmpressure；</li>
+          <li>根据prop <span style="color:#1c7331;"><strong>ro.lmk.use_new_strategy </strong></span>或者通过 prop <span style="color:#1c7331;"><strong>ro.lmk.use_minfree_levels </strong></span><span style="color:#0d0016;">和 prop</span><span style="color:#1c7331;"><strong>&nbsp;ro.config.low_ram</strong></span><span style="color:#1c7331;"><strong>&nbsp;</strong></span>使用PSI 时的新策略还是旧策略；</li>
+          <li>新、旧策略主要体现在mp_event_psi 和mp_event_common 处理，而本质都是通过节点 /proc/pressure/memory 获取内存压力是否达到some/full 指定来确认是否触发event；</li>
+          <li>后期epoll 触发主要的处理函数是mp_event_psi 或 mp_event_common；</li>
+         </ul> 
+         <p></p> 
+         <h1>5.&nbsp; mainloop</h1> 
+         <p>这里暂时不过多分析，因为涉及到不同handler 可能引起的delay 处理。</p> 
+         <p>主要是使用epoll 机制，通过epoll_wait 阻塞等待触发：</p> 
+         <pre><code class="language-cpp">nevents = epoll_wait(epollfd, events, maxevents, -1);</code></pre> 
+         <p>等待唤醒后主要做了两件事情，确认是否有connect 断开，执行handler：</p> 
+         <pre><code class="language-cpp">    for (i = 0, evt = &amp;events[0]; i &lt; nevents; ++i, evt++) {
+        if ((evt-&gt;events &amp; EPOLLHUP) &amp;&amp; evt-&gt;data.ptr) {
+            ALOGI("lmkd data connection dropped");
+            handler_info = (struct event_handler_info*)evt-&gt;data.ptr;
+            ctrl_data_close(handler_info-&gt;data);
+        }
+    }
+
+    /* Second pass to handle all other events */
+    for (i = 0, evt = &amp;events[0]; i &lt; nevents; ++i, evt++) {
+        if (evt-&gt;events &amp; EPOLLERR) {
+            ALOGD("EPOLLERR on event #%d", i);
+        }
+        if (evt-&gt;events &amp; EPOLLHUP) {
+            /* This case was handled in the first pass */
+            continue;
+        }
+        if (evt-&gt;data.ptr) {
+            handler_info = (struct event_handler_info*)evt-&gt;data.ptr;
+            call_handler(handler_info, &amp;poll_params, evt-&gt;events);
+        }
+    }</code></pre> 
+         <p>从init 中可以知道 epoll 主要监听了 9 个event，不同的event fd 对应不同的handler 处理逻辑。这些handler 大致分为：</p> 
+         <ul>
+          <li><strong>一个</strong>socket listener fd 监听，主要是/dev/socket/lmkd，在init() 中添加到epoll；</li>
+          <li><strong>三个</strong>客户端socket data fd 的数据通信，在ctrl_connect_handler() 中添加到epoll；</li>
+          <li><strong>三个</strong>presurre 状态的监听，在init_psi_monitors() -&gt; init_mp_psi() 中添加到epoll；（或者init_mp_common 的旧策略）</li>
+          <li><strong>一个</strong>是LMK event kpoll_fd 监听，在init() 中添加到epoll，目前新的lmkd <strong>不再使用这个监听</strong>；</li>
+          <li><strong>一个</strong>是wait 进程death 的pid fd 监听，在start_wait_for_proc_kill() 中添加到epoll；</li>
+         </ul> 
+         <p></p> 
+         <p>下面来详细剖析这些 handler 的处理流程。</p> 
+         <h1>6. ctrl listener fd 的处理流程 ctrl_connect_handler</h1> 
+         <p>首先，在init 中得知，socket lmkd 在listen 之后会将fd 添加到epoll 中，用以监听socket 从上一节mailloop 得知epoll 触发后会调用event 对应的handler 接口，对于 lmkd，如果connect 成功后会触发ctrl_connect_handler。</p> 
+         <p></p> 
+         <p>AMS 中会尝试连接 lmkd，如果无法connect&nbsp; 会每隔 1 s 去retry，一直到connect。</p> 
+         <p>frameworks/base/servcies/core/java/com/android/server/am/ProcessList.java</p> 
+         <pre><code class="language-java">    // lmkd reconnect delay in msecs
+    private static final long LMKD_RECONNECT_DELAY_MS = 1000;
+
+    ...
+
+    final class KillHandler extends Handler {
+        ...
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case KILL_PROCESS_GROUP_MSG:
+                   ...
+                case LMKD_RECONNECT_MSG:
+                    if (!sLmkdConnection.connect()) {
+                        Slog.i(TAG, "Failed to connect to lmkd, retry after " +
+                                LMKD_RECONNECT_DELAY_MS + " ms");
+                        // retry after LMKD_RECONNECT_DELAY_MS
+                        sKillHandler.sendMessageDelayed(sKillHandler.obtainMessage(
+                                KillHandler.LMKD_RECONNECT_MSG), LMKD_RECONNECT_DELAY_MS);
+                    }
+                    break;
+                default:
+                    super.handleMessage(msg);
+            }
+        }
+    }</code></pre> 
+         <p>通过代码可以得知，AMS 会通过sLmkdConnection.connect() 尝试连接lmkd，如果connect 失败会一直retry。</p> 
+         <p></p> 
+         <p>当LmkdConnection 连接lmkd 成功后，会进行notiry，而 lmkd 会通过epoll 收到消息，并调用ctrl_connect_handler：</p> 
+         <pre><code class="language-cpp">static void ctrl_connect_handler(int data __unused, uint32_t events __unused,
+                                 struct polling_params *poll_params __unused) {
+    struct epoll_event epev;
+    int free_dscock_idx = get_free_dsock();
+
+    if (free_dscock_idx &lt; 0) {
+        for (int i = 0; i &lt; MAX_DATA_CONN; i++) {
+            ctrl_data_close(i);
+        }
+        free_dscock_idx = 0;
+    }
+
+    data_sock[free_dscock_idx].sock = accept(ctrl_sock.sock, NULL, NULL);
+    if (data_sock[free_dscock_idx].sock &lt; 0) {
+        ALOGE("lmkd control socket accept failed; errno=%d", errno);
+        return;
+    }
+
+    ALOGI("lmkd data connection established");
+    /* use data to store data connection idx */
+    data_sock[free_dscock_idx].handler_info.data = free_dscock_idx;
+    data_sock[free_dscock_idx].handler_info.handler = ctrl_data_handler;
+    data_sock[free_dscock_idx].async_event_mask = 0;
+    epev.events = EPOLLIN;
+    epev.data.ptr = (void *)&amp;(data_sock[free_dscock_idx].handler_info);
+    if (epoll_ctl(epollfd, EPOLL_CTL_ADD, data_sock[free_dscock_idx].sock, &amp;epev) == -1) {
+        ALOGE("epoll_ctl for data connection socket failed; errno=%d", errno);
+        ctrl_data_close(free_dscock_idx);
+        return;
+    }
+    maxevents++;
+}</code></pre> 
+         <p>对于 lmkd 会提供最大 3 个的客户端连接，如果超过3个后要进行ctrl_data_close() 以断开epoll 和socket。</p> 
+         <p>如果没有超过的话，会通过accept 创建个新的data socket，并将其添加到epoll 中。</p> 
+         <p>主要注意的是data 的交互函数ctrl_data_handler().</p> 
+         <p></p> 
+         <h1>7. ctrl data fd 的处理流程 ctrl_data_handler</h1> 
+         <pre><code class="language-cpp">static void ctrl_data_handler(int data, uint32_t events,
+                              struct polling_params *poll_params __unused) {
+    if (events &amp; EPOLLIN) {
+        ctrl_command_handler(data);
+    }
+}</code></pre> 
+         <p>当时添加到epoll 时是以EPOLLIN 添加的，所以这里接着会调用ctrl_command_handler，主要处理从ProcessList.java 中发出的几个 lmk command：</p> 
+         <pre><code class="language-cpp">enum lmk_cmd {
+    LMK_TARGET = 0, /* Associate minfree with oom_adj_score */
+    LMK_PROCPRIO,   /* Register a process and set its oom_adj_score */
+    LMK_PROCREMOVE, /* Unregister a process */
+    LMK_PROCPURGE,  /* Purge all registered processes */
+    LMK_GETKILLCNT, /* Get number of kills */
+    LMK_SUBSCRIBE,  /* Subscribe for asynchronous events */
+    LMK_PROCKILL,   /* Unsolicited msg to subscribed clients on proc kills */
+    LMK_UPDATE_PROPS, /* Reinit properties */
+};</code></pre> 
+         <p></p> 
+         <h2>7.1 cmd_procprio</h2> 
+         <p>例如，进程的oom_adj_score 发生变化时，AMS 会调用setOomAdj 通知到lmkd：</p> 
+         <p>frameworks/base/servcies/core/java/com/android/server/am/ProcessList.java</p> 
+         <pre><code class="language-java">    public static void setOomAdj(int pid, int uid, int amt) {
+        ...
+
+        long start = SystemClock.elapsedRealtime();
+        ByteBuffer buf = ByteBuffer.allocate(4 * 4);
+        buf.putInt(LMK_PROCPRIO);
+        buf.putInt(pid);
+        buf.putInt(uid);
+        buf.putInt(amt);
+        writeLmkd(buf, null);
+        long now = SystemClock.elapsedRealtime();
+        ...</code></pre> 
+         <p>lmkd 中ctrl_command_handler 函数根据cmd 解析出LMK_PROCPRIO，最终调用cmd_procprio()：</p> 
+         <pre><code class="language-cpp">    case LMK_PROCPRIO:
+        /* process type field is optional for backward compatibility */
+        if (nargs &lt; 3 || nargs &gt; 4)
+            goto wronglen;
+        cmd_procprio(packet, nargs, &amp;cred);
+        break;</code></pre> 
+         <p>----&gt;接着来看cmd_procprio 的处理：</p> 
+         <pre><code class="language-cpp">static void cmd_procprio(LMKD_CTRL_PACKET packet, int field_count, struct ucred *cred) {
+    struct proc *procp;
+    char path[LINE_MAX];
+    char val[20];
+    int soft_limit_mult;
+    struct lmk_procprio params;
+    bool is_system_server;
+    struct passwd *pwdrec;
+    int tgid;
+
+    lmkd_pack_get_procprio(packet, field_count, &amp;params);
+
+    ...
+
+    snprintf(path, sizeof(path), "/proc/%d/oom_score_adj", params.pid);
+    snprintf(val, sizeof(val), "%d", params.oomadj);
+    if (!writefilestring(path, val, false)) {
+        ALOGW("Failed to open %s; errno=%d: process %d might have been killed",
+              path, errno, params.pid);
+        /* If this file does not exist the process is dead. */
+        return;
+    }
+
+    ...
+
+    procp = pid_lookup(params.pid);
+    if (!procp) {
+        int pidfd = -1;
+
+        if (pidfd_supported) {
+            pidfd = TEMP_FAILURE_RETRY(sys_pidfd_open(params.pid, 0));
+            ...
+        }
+
+        procp = static_cast&lt;struct proc*&gt;(calloc(1, sizeof(struct proc)));
+        if (!procp) {
+            // Oh, the irony.  May need to rebuild our state.
+            return;
+        }
+
+        procp-&gt;pid = params.pid;
+        procp-&gt;pidfd = pidfd;
+        procp-&gt;uid = params.uid;
+        procp-&gt;reg_pid = cred-&gt;pid;
+        procp-&gt;oomadj = params.oomadj;
+        proc_insert(procp);
+    } else {
+        ...
+        proc_unslot(procp);
+        procp-&gt;oomadj = params.oomadj;
+        proc_slot(procp)
+    }
+}</code></pre> 
+         <ul>
+          <li>首先是将AMS 中传下来的进程的oom_score_adj 写入到节点/proc/pid/oom_score_adj；</li>
+          <li>通过pid_lookup 查找是否已经存在的进程；</li>
+          <li>如果是新的进程，将通过sys_pidfd_open 获取pidfd，并通过proc_insert 添加到&nbsp;procadjslot_list 数组链表中；</li>
+          <li>如果是已经存在的进程，则更新oomadj 属性，重新添加到&nbsp;procadjslot_list 数组链表中；</li>
+         </ul> 
+         <p></p> 
+         <h2>7.2&nbsp;cmd_procremove</h2> 
+         <p>同理7.1 节，当应用进程不再启动时，会通过ProcessList.remove() 发送命令 LMK_PROCREMOVE 通知 lmkd，并最终调用到cmd_procremove：</p> 
+         <pre><code class="language-cpp">static void cmd_procremove(LMKD_CTRL_PACKET packet, struct ucred *cred) {
+    ...
+
+    procp = pid_lookup(params.pid);
+    if (!procp) {
+        return;
+    }
+
+    ...
+
+    pid_remove(params.pid);
+}</code></pre> 
+         <p>代码比较简单，如果proc 存在，则通过pid_remove 进行移除工作。</p> 
+         <p></p> 
+         <h2>7.3&nbsp;cmd_procpurge</h2> 
+         <p>一般是在AMS 构造的时候会对 lmkd 进行connect，如果connect 成功，则会发命令LMK_PROCPURGE 通知lmkd 先进行环境的打扫工作，最终调用&nbsp;cmd_procpurge：</p> 
+         <pre><code class="language-cpp">static void cmd_procpurge(struct ucred *cred) {
+    ...
+
+    for (i = 0; i &lt; PIDHASH_SZ; i++) {
+        procp = pidhash[i];
+        while (procp) {
+            next = procp-&gt;pidhash_next;
+            /* Purge only records created by the requestor */
+            if (claim_record(procp, cred-&gt;pid)) {
+                pid_remove(procp-&gt;pid);
+            }
+            procp = next;
+        }
+    }
+}
+</code></pre> 
+         <p>代码比较简单，就是将所有的proc 都清理一遍。</p> 
+         <p></p> 
+         <h2>7.4&nbsp;cmd_subscribe</h2> 
+         <p>在AMS 通过ProcessList connect 到 lmkd 之后，会发送命令LMK_SUBSCRIBE：</p> 
+         <p>frameworks/base/servcies/core/java/com/android/server/am/ProcessList.java</p> 
+         <pre><code class="language-java">    public boolean onLmkdConnect(OutputStream ostream) {
+        try {
+            ...
+            // Subscribe for kill event notifications
+            buf = ByteBuffer.allocate(4 * 2);
+            buf.putInt(LMK_SUBSCRIBE);
+            buf.putInt(LMK_ASYNC_EVENT_KILL);
+            ostream.write(buf.array(), 0, buf.position());
+        } catch (IOException ex) {
+            return false;
+        }
+        return true;
+    }</code></pre> 
+         <p>用以接受 lmkd 在kill 进程后的通知，lmkd 在kill 进程需要根据client 是否有subscribe 决定是否通知，如果向 lmkd 发送subscribe：</p> 
+         <pre><code class="language-cpp">static void cmd_subscribe(int dsock_idx, LMKD_CTRL_PACKET packet) {
+    struct lmk_subscribe params;
+
+    lmkd_pack_get_subscribe(packet, &amp;params);
+    data_sock[dsock_idx].async_event_mask |= 1 &lt;&lt; params.evt_type;
+}</code></pre> 
+         <p>会将对应的客户端信息数组 data_sock 中对应的async_event_mask 标记为LMK_ASYNC_EVENT_KILL，在 lmkd kill 一个进程后会调用：</p> 
+         <pre><code class="language-cpp">static void ctrl_data_write_lmk_kill_occurred(pid_t pid, uid_t uid) {
+    LMKD_CTRL_PACKET packet;
+    size_t len = lmkd_pack_set_prockills(packet, pid, uid);
+
+    for (int i = 0; i &lt; MAX_DATA_CONN; i++) {
+        if (data_sock[i].sock &gt;= 0 &amp;&amp; data_sock[i].async_event_mask &amp; 1 &lt;&lt; LMK_ASYNC_EVENT_KILL) {
+            ctrl_data_write(i, (char*)packet, len);
+        }
+    }
+}</code></pre> 
+         <p>通过ctrl_data_write 通知 AMS 中的ProcessList：</p> 
+         <p>frameworks/base/servcies/core/java/com/android/server/am/ProcessList.java</p> 
+         <pre><code class="language-java">sLmkdConnection = new LmkdConnection(sKillThread.getLooper().getQueue(),
+                    new LmkdConnection.LmkdConnectionListener() {
+                        ...
+
+                        @Override
+                        public boolean handleUnsolicitedMessage(ByteBuffer dataReceived,
+                                int receivedLen) {
+                            ...
+                        }</code></pre> 
+         <p></p> 
+         <h2>7.5&nbsp;cmd_target</h2> 
+         <p>从ProcessList.java 中得知在ProcessList 构造时会初始化一次，另外会在ATMS.updateConfiguration 是会触发：</p> 
+         <p>frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java</p> 
+         <pre><code class="language-java">   public boolean updateConfiguration(Configuration values) {
+        mAmInternal.enforceCallingPermission(CHANGE_CONFIGURATION, "updateConfiguration()");
+
+        synchronized (mGlobalLock) {
+            ...
+
+            mH.sendMessage(PooledLambda.obtainMessage(
+                    ActivityManagerInternal::updateOomLevelsForDisplay, mAmInternal,
+                    DEFAULT_DISPLAY));
+
+            ...
+        }
+    }</code></pre> 
+         <p>感兴趣的可以跟一下源码，最终会调用到ProcessList.updateOomLevels()</p> 
+         <p>frameworks/base/servcies/core/java/com/android/server/am/ProcessList.java</p> 
+         <pre><code class="language-java">    private void updateOomLevels(int displayWidth, int displayHeight, boolean write) {
+        ...
+
+        if (write) {
+            ByteBuffer buf = ByteBuffer.allocate(4 * (2 * mOomAdj.length + 1));
+            buf.putInt(LMK_TARGET);
+            for (int i = 0; i &lt; mOomAdj.length; i++) {
+                buf.putInt((mOomMinFree[i] * 1024)/PAGE_SIZE);
+                buf.putInt(mOomAdj[i]);
+            }
+
+            writeLmkd(buf, null);
+            ...
+        }
+    }</code></pre> 
+         <p>系统通过这个函数计算oom adj 的minfree，并将各个级别的 minfree和oom_adj_score&nbsp;传入到 lmkd 中，至于adj minfree 的算法，后续会补充，这里继续跟lmkd 的cmd_target：</p> 
+         <pre><code class="language-cpp">static void cmd_target(int ntargets, LMKD_CTRL_PACKET packet) {
+    int i;
+    struct lmk_target target;
+    char minfree_str[PROPERTY_VALUE_MAX];
+    char *pstr = minfree_str;
+    char *pend = minfree_str + sizeof(minfree_str);
+    static struct timespec last_req_tm;
+    struct timespec curr_tm;
+
+    ...
+
+    for (i = 0; i &lt; ntargets; i++) {
+        lmkd_pack_get_target(packet, i, &amp;target);
+        lowmem_minfree[i] = target.minfree;
+        lowmem_adj[i] = target.oom_adj_score;
+
+        pstr += snprintf(pstr, pend - pstr, "%d:%d,", target.minfree,
+            target.oom_adj_score);
+        if (pstr &gt;= pend) {
+            /* if no more space in the buffer then terminate the loop */
+            pstr = pend;
+            break;
+        }
+    }
+
+    lowmem_targets_size = ntargets;
+
+    /* Override the last extra comma */
+    pstr[-1] = '\0';
+    property_set("sys.lmk.minfree_levels", minfree_str);
+
+    ...
+}</code></pre> 
+         <p>代码比较简单，将minfree 和oom_adj_score 进行组装，然后将组装的字符串存入到prop&nbsp;sys.lmk.minfree_levels。</p> 
+         <p>这里的prop 其实应该是为了后面debug 时查看的，而最终的是两个数组变量：</p> 
+         <pre><code class="language-cpp">static int lowmem_adj[MAX_TARGETS];
+static int lowmem_minfree[MAX_TARGETS];</code></pre> 
+         <p>这里是将AMS 中设置的oom adj 都存放起来，后面需要kill 进程时会根据内存的使用情况、内存的mem pressure计算出最合适的min_score_adj，然后根据这个min_score_adj，kill 所有大于此值的进程。</p> 
+         <p></p> 
+         <p></p> 
+         <p>至此，&nbsp;ctrl data fd 的处理流程 ctrl_data_handler 基本已剖析完成了，主要是配合第 6 节，AMS 在构造的时候会通过ProcessList 进行相对 lmkd 的初始化，包括connect 和 lmkd kill 进程后的通知监听。</p> 
+         <ul>
+          <li>在AMS 初始化时connect lmkd，并发送命令LMK_PROCPURGE 进行环境清理；</li>
+          <li>同上，在AMS 发送完LMK_PROCPURGE 后，会紧接着发送LMK_SUBSCRIBE 用以接受 lmkd kill 进程后的通知；</li>
+          <li>在AMS 停掉某个进程时，会发送命令LMK_PROCREMOVE；</li>
+          <li>在AMS 更新oom_score_adj 时，会通过接口setOomAdj 发送命令LMK_PROCPRIO；</li>
+          <li>在更新oom level 时，会通过updateOomLevels 发送命令LMK_TARGET；</li>
+         </ul> 
+         <p></p> 
+         <p></p> 
+         <p>关于mp_event_common、mp_event_psi、kill_one_process 等相关流程，移到另一篇博文：&nbsp;</p> 
+         <p><a class="link-info" href="https://justinwei.blog.csdn.net/article/details/122268437" title="Android lmkd 机制详解（二）">Android lmkd 机制详解（二）</a></p> 
+         <p></p> 
+         <p></p> 
+         <p></p> 
+         <p></p> 
+         <p></p> 
+         <p></p> 
+         <p>参考：&nbsp;</p> 
+         <p><a href="https://justinwei.blog.csdn.net/article/details/121537332" title="https://justinwei.blog.csdn.net/article/details/121537332">https://justinwei.blog.csdn.net/article/details/121537332</a></p> 
+         <p><a href="https://justinwei.blog.csdn.net/article/details/121471124" title="https://justinwei.blog.csdn.net/article/details/121471124">https://justinwei.blog.csdn.net/article/details/121471124</a></p> 
+         <p><a href="https://source.android.google.cn/devices/tech/perf/lmkd" title="https://source.android.google.cn/devices/tech/perf/lmkd">https://source.android.google.cn/devices/tech/perf/lmkd</a></p> 
+        </div> 
+       </div> 
+       <div id="treeSkill"></div> 
+      </article>  
+     </div> 
+     <div class="more-toolbox-new" id="toolBarBox"> 
+      <div class="left-toolbox"> 
+       <div class="toolbox-left"> 
+        <div class="profile-box">
+         <a class="profile-href" target="_blank" href="https://justinwei.blog.csdn.net"><img class="profile-img" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fprofile.csdnimg.cn%2FE%2FC%2F3%2F3_jingerppp&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"><span class="profile-name">私房菜</span></a>
+        </div> 
+        <div class="profile-attend"> 
+         <a class="tool-attend tool-bt-button tool-bt-attend" href="javascript:;" data-report-view="{&quot;mod&quot;:&quot;1592215036_002&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4232&quot;,&quot;extend1&quot;:&quot;关注&quot;}">关注</a> 
+         <a class="tool-item-follow active-animation" style="display:none;">关注</a> 
+        </div> 
+       </div> 
+       <div class="toolbox-middle">  
+       </div> 
+       <div class="toolbox-right"> 
+        <div class="tool-directory"> 
+         <a class="bt-columnlist-show" data-id="11877555" data-free="false" data-subscribe="false" data-title="Linux 内存管理--基于Android 平台" data-img="https://img-blog.csdnimg.cn/20190927151101105.png?x-oss-process=image/resize,m_fixed,h_224,w_224" data-url="https://blog.csdn.net/jingerppp/category_11877555.html" data-sum="22" data-people="3" data-price="49.90" data-oldprice="99.00" data-join="true" data-studyvip="true" data-studysubscribe="false" data-report-view="{&quot;spm&quot;:&quot;1001.2101.3001.6334&quot;,&quot;extend1&quot;:&quot;专栏目录&quot;}" data-report-click="{&quot;spm&quot;:&quot;1001.2101.3001.6334&quot;,&quot;extend1&quot;:&quot;专栏目录&quot;}">专栏目录</a> 
+        </div> 
+        <div class="tool-column"> 
+        </div> 
+       </div> 
+      </div> 
+     </div>        
+     <a id="commentBox" name="commentBox"></a>   
+     <div id="recommendNps" class="recommend-nps-box common-nps-box"> 
+      <h3 class="aside-title">“相关推荐”对你有帮助么？</h3> 
+      <div class="aside-content"> 
+       <ul class="newnps-list"> 
+        <li class="newnps-item" data-type="非常没帮助"> 
+         <div class="newnps-img-box"> 
+          <img class="newnps-img active" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeel1.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+          <img class="newnps-img default" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeelGrey1.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+         </div> 
+         <div class="newnps-text">
+          非常没帮助
+         </div> </li> 
+        <li class="newnps-item" data-type="没帮助"> 
+         <div class="newnps-img-box"> 
+          <img class="newnps-img active" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeel2.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+          <img class="newnps-img default" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeelGrey2.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+         </div> 
+         <div class="newnps-text">
+          没帮助
+         </div> </li> 
+        <li class="newnps-item" data-type="一般"> 
+         <div class="newnps-img-box"> 
+          <img class="newnps-img active" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeel3.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+          <img class="newnps-img default" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeelGrey3.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+         </div> 
+         <div class="newnps-text">
+          一般
+         </div> </li> 
+        <li class="newnps-item" data-type="有帮助"> 
+         <div class="newnps-img-box"> 
+          <img class="newnps-img active" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeel4.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+          <img class="newnps-img default" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeelGrey4.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+         </div> 
+         <div class="newnps-text">
+          有帮助
+         </div> </li> 
+        <li class="newnps-item" data-type="非常有帮助"> 
+         <div class="newnps-img-box"> 
+          <img class="newnps-img active" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeel5.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+          <img class="newnps-img default" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnpsFeelGrey5.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+         </div> 
+         <div class="newnps-text">
+          非常有帮助
+         </div> </li> 
+       </ul> 
+       <div class="newnps-form-box"> 
+        <div class="newnps-form"> 
+         <input type="text" placeholder="请输入建议或反馈后点击提交" class="newnps-input"> 
+         <span class="newnps-btn">提交</span> 
+        </div> 
+       </div> 
+      </div> 
+     </div>     
+    </main>     
+   </div> 
+   <div class="recommend-right align-items-stretch clearfix" id="rightAside" data-type="recommend"> 
+    <aside class="recommend-right_aside"> 
+     <div id="recommend-right"> 
+      <div class="flex-column aside-box groupfile" id="groupfile"> 
+       <div class="groupfile-div"> 
+        <h3 class="aside-title">目录</h3> 
+        <div class="align-items-stretch group_item"> 
+         <div class="pos-box"> 
+          <div class="scroll-box"> 
+           <div class="toc-box"></div> 
+          </div> 
+         </div> 
+        </div> 
+       </div> 
+      </div> 
+      <div class="aside-box kind_person d-flex flex-column"> 
+       <h3 class="aside-title">分类专栏</h3> 
+       <div class="align-items-stretch kindof_item" id="kind_person_column"> 
+        <div class="aside-content"> 
+         <ul> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_11877555.html" data-report-click="{&quot;mod&quot;:&quot;popu_826&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4230&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_11877555.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20190927151101105.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Linux 内存管理--基于Android 平台 </span> <span class="pay-tag">付费</span> </a> <span class="special-column-num">22篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_11877535.html" data-report-click="{&quot;mod&quot;:&quot;popu_826&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4230&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_11877535.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20190927151026427.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Android input 详解 </span> <span class="pay-tag">付费</span> </a> <span class="special-column-num">7篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_11878280.html" data-report-click="{&quot;mod&quot;:&quot;popu_826&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4230&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_11878280.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20190918140145169.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Android HIDL 详解 </span> <span class="pay-tag">付费</span> </a> <span class="special-column-num">8篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_9275002.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_9275002.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20181207165449492.jpg%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android 源码分析 </span> </a> <span class="special-column-num">63篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_9275004.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_9275004.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20181207165634909.jpg%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android 中的一些小细节 </span> </a> <span class="special-column-num">20篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_9282512.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_9282512.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20181211093048970.jpg%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> 数据加密进阶 </span> </a> <span class="special-column-num">13篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1397171.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1397171.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756927.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android </span> </a> <span class="special-column-num">52篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1478505.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1478505.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756925.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- basic </span> </a> <span class="special-column-num">11篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_8466677.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_8466677.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756754.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- build </span> </a> <span class="special-column-num">8篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_9301550.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_9301550.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756926.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- binder </span> </a> <span class="special-column-num">6篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5795837.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5795837.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756754.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- resource </span> </a> <span class="special-column-num">15篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_3185339.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_3185339.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756724.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- init </span> </a> <span class="special-column-num">3篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_3186163.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_3186163.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756927.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- zygote </span> </a> <span class="special-column-num">5篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5577445.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5577445.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756925.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- AMS </span> </a> <span class="special-column-num">12篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1627233.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1627233.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756916.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- input </span> </a> <span class="special-column-num">9篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5863907.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5863907.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756930.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- HAL </span> </a> <span class="special-column-num">14篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_2266139.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_2266139.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756724.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- JNI </span> </a> <span class="special-column-num">3篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5761537.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5761537.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756754.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- dumpsys </span> </a> <span class="special-column-num">3篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5930169.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5930169.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756928.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- async task </span> </a> <span class="special-column-num">7篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5845449.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5845449.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756928.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- db </span> </a> <span class="special-column-num">9篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_7121234.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_7121234.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756913.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- SELINUX </span> </a> <span class="special-column-num">2篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_7360578.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_7360578.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756738.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- smart pointer </span> </a> <span class="special-column-num">4篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_7616132.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_7616132.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756919.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- performance </span> </a> <span class="special-column-num">11篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_7732294.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_7732294.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756913.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- security </span> </a> <span class="special-column-num">21篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_7407000.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_7407000.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756922.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- design pattern </span> </a> <span class="special-column-num">17篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_11389510.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_11389510.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756926.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> android ---- protobuf </span> </a> <span class="special-column-num">5篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_8353567.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_8353567.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756930.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> data encryption </span> </a> <span class="special-column-num">13篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_11000152.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_11000152.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756919.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> TEE </span> </a> <span class="special-column-num">1篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_2108981.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_2108981.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756928.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Makefile </span> </a> <span class="special-column-num">11篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1473745.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1473745.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756925.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Main </span> </a> <span class="special-column-num">15篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1473503.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1473503.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756927.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> uboot </span> </a> <span class="special-column-num">1篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1495919.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1495919.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756724.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Shell </span> </a> <span class="special-column-num">8篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_8868280.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_8868280.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756922.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> unix/linux </span> </a> <span class="special-column-num">47篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_5420987.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_5420987.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756930.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> Java </span> </a> <span class="special-column-num">8篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_2341647.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_2341647.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756930.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> C </span> </a> <span class="special-column-num">15篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_2341649.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_2341649.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756928.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> C++ </span> </a> <span class="special-column-num">23篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_11353222.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_11353222.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar special-column-bar-second"></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20210913141847494.jpeg%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> c++11 </span> </a> <span class="special-column-num">9篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_10798092.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_10798092.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756919.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> C/C++面试 </span> </a> <span class="special-column-num">5篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_1572827.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_1572827.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756930.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> tools </span> </a> <span class="special-column-num">22篇</span> </li> 
+          <li> <a class="clearfix special-column-name" target="_blank" href="https://blog.csdn.net/jingerppp/category_7356358.html" data-report-click="{&quot;mod&quot;:&quot;popu_537&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4137&quot;,&quot;strategy&quot;:&quot;pc付费专栏左侧入口&quot;,&quot;dest&quot;:&quot;https://blog.csdn.net/jingerppp/category_7356358.html&quot;,&quot;ab&quot;:&quot;new&quot;}"> 
+            <div class="special-column-bar "></div> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fimg-blog.csdnimg.cn%2F20201014180756738.png%3Fx-oss-process%3Dimage%2Fresize%2Cm_fixed%2Ch_64%2Cw_64&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt="" onerror="this.src='https://img-blog.csdnimg.cn/20201014180756922.png?x-oss-process=image/resize,m_fixed,h_64,w_64'"> <span class=""> IT人生 </span> </a> <span class="special-column-num">5篇</span> </li> 
+         </ul> 
+        </div> 
+       </div> 
+      </div> 
+     </div> 
+    </aside> 
+   </div> 
+   <div class="recommend-right1  align-items-stretch clearfix" id="rightAsideConcision" data-type="recommend"> 
+    <aside class="recommend-right_aside"> 
+     <div id="recommend-right-concision"> 
+      <div class="flex-column aside-box groupfile" id="groupfileConcision"> 
+       <div class="groupfile-div1"> 
+        <h3 class="aside-title">目录</h3> 
+        <div class="align-items-stretch group_item"> 
+         <div class="pos-box"> 
+          <div class="scroll-box"> 
+           <div class="toc-box"></div> 
+          </div> 
+         </div> 
+        </div> 
+       </div> 
+      </div> 
+     </div> 
+    </aside> 
+   </div> 
+  </div> 
+  <div class="mask-dark"></div>  
+  <div class="skin-boxshadow"></div> 
+  <div class="directory-boxshadow"></div> 
+  <div class="comment-side-box-shadow comment-side-tit-close" id="commentSideBoxshadow"> 
+   <div class="comment-side-content"> 
+    <div class="comment-side-tit"> 
+     <div class="comment-side-tit-count">
+      评论&nbsp;
+      <span class="count">2</span>
+     </div> 
+     <img class="comment-side-tit-close" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FcloseBt.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698">
+    </div>  
+    <div id="pcFlodCommentSideBox" class="pc-flodcomment-sidebox"> 
+     <div class="comment-fold-tit">
+      <span id="lookUnFlodComment" class="back"><img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FcommentArrowLeftWhite.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""></span>被折叠的&nbsp;
+      <span class="count"></span>&nbsp;条评论 
+      <a href="https://blogdev.blog.csdn.net/article/details/122245662" class="tip" target="_blank">为什么被折叠?</a> 
+      <a href="https://bbs.csdn.net/forums/FreeZone" class="park" target="_blank"> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FiconPark.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698">到【灌水乐园】发言</a> 
+     </div> 
+     <div class="comment-fold-content"></div> 
+     <div id="lookBadComment" class="look-bad-comment side-look-comment"> 
+      <a class="look-more-comment">查看更多评论<img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FcommentArrowDownWhite.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""></a> 
+     </div> 
+    </div> 
+   </div> 
+  </div> 
+  <div id="rewardNew" class="reward-popupbox-new"> 
+   <p class="rewad-title">打赏作者<span class="reward-close"><img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FcloseBt.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"></span></p> 
+   <dl class="profile-box"> 
+    <dd> 
+     <a href="https://justinwei.blog.csdn.net" data-report-click="{&quot;mod&quot;:&quot;popu_379&quot;,&quot;dest&quot;:&quot;https://justinwei.blog.csdn.net&quot;,&quot;ab&quot;:&quot;new&quot;}"> <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fprofile.csdnimg.cn%2FE%2FC%2F3%2F3_jingerppp&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" class="avatar_pic"> </a> 
+    </dd> 
+    <dt> 
+     <p class="blog-name">私房菜</p> 
+     <p class="blog-discript">你的鼓励将是我创作的最大动力</p> 
+    </dt> 
+   </dl> 
+   <div class="reward-box-new"> 
+    <div class="reward-content">
+     <div class="reward-right"></div>
+    </div> 
+   </div> 
+   <div class="money-box"> 
+    <span class="choose-money choosed" data-id="2">¥2</span> 
+    <span class="choose-money " data-id="4">¥4</span> 
+    <span class="choose-money " data-id="6">¥6</span> 
+    <span class="choose-money " data-id="10">¥10</span> 
+    <span class="choose-money " data-id="20">¥20</span> 
+    <input id="customizeMoney" class="customize-money" name="" type="" value="" placeholder="自定义"> 
+    <div class="customize-tip">
+     输入1-500的整数
+    </div> 
+   </div> 
+   <div class="pay-box"> 
+    <div class="pay-type-blance pay-type active" data-type="blance"> 
+     <img class="unchoose" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewUnChoose.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+     <img class="choose" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewChoose.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+     <span class="pay-type-name">余额支付</span> 
+     <span class="pay-type-num">(余额：-- )</span> 
+    </div> 
+    <div class="pay-type-money pay-type" data-type="money"> 
+     <img class="unchoose" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewUnChoose.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+     <img class="choose" src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewChoose.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+     <span class="pay-type-name">扫码支付</span> 
+    </div> 
+   </div> 
+   <div class="sure-box"> 
+    <div class="sure-box-money"> 
+     <div class="code-box"> 
+      <div class="code-num-box"> 
+       <span class="code-name">扫码支付：</span>
+       <span class="code-num">¥2</span> 
+      </div> 
+      <div class="code-img-box"> 
+       <div class="renovate"> 
+        <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Fpay-time-out.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"> 
+        <span>获取中</span> 
+       </div> 
+      </div> 
+      <div class="code-pay-box"> 
+       <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewWeiXin.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+       <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2FnewZhiFuBao.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+       <span>扫码支付</span> 
+      </div> 
+     </div> 
+    </div> 
+    <div class="sure-box-blance"> 
+     <p class="tip">您的余额不足，请更换扫码支付或<a target="_blank" data-report-click="{&quot;mod&quot;:&quot;1597646289_003&quot;,&quot;spm&quot;:&quot;1001.2101.3001.4302&quot;}" href="https://i.csdn.net/#/wallet/balance/recharge?utm_source=RewardVip" class="go-invest">充值</a></p> 
+     <p class="is-have-money"><a class="reward-sure">打赏作者</a></p> 
+    </div> 
+   </div> 
+  </div> 
+  <div class="pay-code"> 
+   <div class="pay-money">
+    实付
+    <span class="pay-money-span" data-nowprice="" data-oldprice="">元</span>
+   </div> 
+   <div class="content-blance">
+    <a class="blance-bt" href="javascript:;">使用余额支付</a>
+   </div> 
+   <div class="content-code"> 
+    <div id="payCode" data-id=""> 
+     <div class="renovate"> 
+      <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Fpay-time-out.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"> 
+      <span>点击重新获取</span> 
+     </div> 
+    </div> 
+    <div class="pay-style">
+     <span><img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Fweixin.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"></span>
+     <span><img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Fzhifubao.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"></span>
+     <span><img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Fjingdong.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698"></span>
+     <span class="text">扫码支付</span>
+    </div> 
+   </div> 
+   <div class="bt-close">
+    <svg t="1567152543821" class="icon" viewbox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="10924" xmlns:xlink="http://www.w3.org/1999/xlink" width="12" height="12">
+     <defs>
+      <style type="text/css"></style>
+     </defs>
+     <path d="M512 438.378667L806.506667 143.893333a52.032 52.032 0 1 1 73.6 73.621334L585.621333 512l294.485334 294.485333a52.074667 52.074667 0 0 1-73.6 73.642667L512 585.621333 217.514667 880.128a52.053333 52.053333 0 1 1-73.621334-73.642667L438.378667 512 143.893333 217.514667a52.053333 52.053333 0 1 1 73.621334-73.621334L512 438.378667z" fill="" p-id="10925"></path>
+    </svg>
+   </div> 
+   <!-- <p style="margin-top: 8px;font-size: 14px;" class="text-center">支付成功即可阅读</p> --> 
+   <div class="pay-balance"> 
+    <input type="radio" class="pay-code-radio" data-type="details"> 
+    <span class="span">钱包余额</span> 
+    <span class="balance" style="color:#FC5531;font-size:14px;">0</span> 
+    <div class="pay-code-tile"> 
+     <img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Fpay-help.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""> 
+     <div class="pay-code-content"> 
+      <div class="span"> 
+       <p class="title">抵扣说明：</p> 
+       <p> 1.余额是钱包充值的虚拟货币，按照1:1的比例进行支付金额的抵扣。<br> 2.余额无法直接购买下载，可以购买VIP、C币套餐、付费专栏及课程。</p> 
+      </div> 
+     </div> 
+    </div> 
+   </div> 
+   <a class="pay-balance-con" href="https://i.csdn.net/#/wallet/balance/recharge" target="_blank"><img src="https://pucsdn.com//main/csdn/img?url=https%3A%2F%2Fcsdnimg.cn%2Frelease%2Fblogv2%2Fdist%2Fpc%2Fimg%2Frecharge.png&amp;rfUrl=https%3A%2F%2Fblog.csdn.net%2Fshift_wwx%2Farticle%2Fdetails%2F121593698" alt=""><span>余额充值</span></a> 
+  </div> 
+  <div style="display:none;">  
+  </div> 
+  <div class="keyword-dec-box" id="keywordDecBox"></div>  
+  <!-- 富文本柱状图  --> 
+  <link rel="stylesheet" href="https://csdnimg.cn/release/blog_editor_html/release1.6.12/ckeditor/plugins/chart/chart.css">      
+  <link rel="stylesheet" href="https://csdnimg.cn/release/blog_editor_html/release1.6.12/ckeditor/plugins/codesnippet/lib/highlight/styles/tomorrow-night-eighties.css">                  
+ </body>
+</html>

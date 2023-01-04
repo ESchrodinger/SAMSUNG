@@ -1,0 +1,10 @@
+pschecker.py
+这个脚本可以列出手机里面app 的 PId 和 task结构
+
+命令格式：
+python地址 pschecker.py applist.TXT
+
+applist.TXT --- 这个是你要测的APP列表
+
+脚本运行完会生成一个csv，打开 csv，如果 pid 是 -1 就是被杀了
+
